@@ -1040,10 +1040,15 @@ function parseGhRepo(v){
   const parts=v.split("/").filter(Boolean);
   if(parts.length<2) return null;
   const owner=parts[0], name=parts[1];
-  let branch="", path="";
-  if(parts[2]==="tree"&&parts.length>=4){ branch=parts[3]; path=parts.slice(4).join("/"); }
+  let branch="", path="", treeSegs=null;
+  if(parts[2]==="tree"&&parts.length>=4){
+    // Branch names can contain slashes (e.g. claude/xyz), so where the branch ends and
+    // the folder path begins is ambiguous — keep the segments and resolve by probing.
+    treeSegs=parts.slice(3);
+    branch=treeSegs[0]; path=treeSegs.slice(1).join("/");
+  }
   else path=parts.slice(2).join("/");
-  return {owner,name,branch,path};
+  return {owner,name,branch,path,treeSegs};
 }
 function saveGhRepo(){
   const v=document.getElementById("ghRepoInput").value;
@@ -1055,17 +1060,43 @@ function saveGhRepo(){
   syncGithub(true);
 }
 async function syncGithub(manual){
-  const cfg=loadGhCfg();
+  let cfg=loadGhCfg();
   const st=document.getElementById("ghStatus");
   const set=m=>{ if(st) st.textContent=m; };
+  // Pick up anything typed into the fields but not yet saved, so "Sync now" never runs stale.
+  const ri=document.getElementById("ghRepoInput"), ti=document.getElementById("ghTokenInput");
+  if(ri&&ri.value.trim()&&ri.value.trim()!==cfg.display){
+    const p=parseGhRepo(ri.value);
+    if(p){ cfg={...p,token:cfg.token||null,display:ri.value.trim(),last:cfg.last||null}; saveGhCfg(cfg); }
+  }
+  if(ti&&ti.value.trim()&&ti.value.trim()!==cfg.token){ cfg.token=ti.value.trim(); saveGhCfg(cfg); }
   if(!cfg.owner){ if(manual) alert("Set the GitHub repository first (owner/repo), then Save & sync."); return; }
   set("Syncing…");
   try{
     const headers={"Accept":"application/vnd.github+json"};
     if(cfg.token) headers["Authorization"]="Bearer "+cfg.token;
-    const url="https://api.github.com/repos/"+cfg.owner+"/"+cfg.name+"/contents/"+(cfg.path||"")+(cfg.branch?"?ref="+encodeURIComponent(cfg.branch):"");
-    const resp=await fetch(url,{headers});
-    if(!resp.ok) throw new Error(resp.status===404?"Repo or folder not found — check the path, and that the repo is public or a token is set.":(resp.status===401||resp.status===403?"Not authorised — check the access token.":"GitHub error "+resp.status));
+    // Candidate branch/path splits: a resolved config has one; an ambiguous tree URL is probed
+    // left to right until GitHub recognises the branch (slash-containing branch names).
+    let candidates;
+    if(cfg.resolved||!cfg.treeSegs||cfg.treeSegs.length<2){
+      candidates=[{branch:cfg.branch||"",path:cfg.path||""}];
+    } else {
+      candidates=[];
+      for(let i=1;i<=cfg.treeSegs.length;i++)
+        candidates.push({branch:cfg.treeSegs.slice(0,i).join("/"),path:cfg.treeSegs.slice(i).join("/")});
+    }
+    let resp=null,used=null;
+    for(const c of candidates){
+      const url="https://api.github.com/repos/"+cfg.owner+"/"+cfg.name+"/contents/"+(c.path||"")+(c.branch?"?ref="+encodeURIComponent(c.branch):"");
+      const r=await fetch(url,{headers});
+      if(r.status===404&&candidates.length>1){ continue; }
+      resp=r; used=c; break;
+    }
+    if(!resp) throw new Error("Repo or folder not found — check the path, and that the token has access to this repo.");
+    if(!resp.ok) throw new Error(resp.status===404?"Repo or folder not found — check the path, and that the repo is public or a token with access to it is set. (Note: GitHub reports a private repo the token cannot see as not found.)":(resp.status===401||resp.status===403?"Not authorised — check the access token.":"GitHub error "+resp.status));
+    if(used&&(used.branch!==cfg.branch||used.path!==cfg.path||!cfg.resolved)){
+      cfg.branch=used.branch; cfg.path=used.path; cfg.resolved=true; saveGhCfg(cfg);
+    }
     const listing=await resp.json();
     if(!Array.isArray(listing)) throw new Error("That path is a file, not a folder.");
     // SUPERSEDED_ prefix is the repo's own retirement convention — never ingest those.
