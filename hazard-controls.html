@@ -1,134 +1,180 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
+<!-- saved from url=(0063)file:///C:/Users/cameronm/Downloads/hazard-controls%20(12).html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src https://api.anthropic.com; img-src 'self' data:; font-src 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src &#39;self&#39;; script-src &#39;self&#39; &#39;unsafe-inline&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; connect-src https://api.anthropic.com https://api.github.com https://raw.githubusercontent.com; img-src &#39;self&#39; data: blob:; font-src &#39;self&#39;;">
 <title>Hazard Controls Generator — The Ponds HS</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg:#f5f4f0;--surface:#fff;--surface2:#f8f7f4;--border:#e2e0d8;--border2:#ccc9bf;
-    --text:#1a1917;--text2:#5a584f;--text3:#9a9890;--accent:#1d5fa6;--accent-bg:#e8f0fb;
-    --success:#1a6b3c;--success-bg:#e8f5ee;--danger:#b03020;--danger-bg:#fdf0ee;
-    --warning-bg:#fef9ec;--warning-border:#f0d060;--radius:10px;--radius-sm:6px;
-  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f8f7f4;--border:#e2e0d8;--border2:#ccc9bf;--text:#1a1917;--text2:#5a584f;--text3:#9a9890;--accent:#1d5fa6;--accent-bg:#e8f0fb;--success:#1a6b3c;--success-bg:#e8f5ee;--danger:#b03020;--danger-bg:#fdf0ee;--warning-bg:#fef9ec;--warning-border:#f0d060;--radius:10px;--radius-sm:6px;}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;min-height:100vh;}
   .shell{display:flex;min-height:100vh;}
-  .sidebar{width:290px;min-width:290px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
-  .main{flex:1;padding:2rem;max-width:860px;}
+  .sidebar{width:340px;min-width:340px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+  .bench-cb{appearance:none;-webkit-appearance:none;width:16px;height:16px;min-width:16px;border:1px solid var(--border2);border-radius:3px;background:var(--surface2);cursor:pointer;position:relative;margin:0;}
+  .bench-cb:checked::after{content:"✕";position:absolute;top:50%;left:50%;transform:translate(-50%,-52%);font-size:11px;font-weight:700;color:var(--danger);line-height:1;}
+  .cb-spacer{width:13px;min-width:13px;display:inline-block;}
+  .main{flex:1;padding:2rem;max-width:1700px;}
   .sidebar-header{padding:1.25rem 1rem 1rem;border-bottom:1px solid var(--border);}
   .sidebar-header h2{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;}
   .sidebar-header p{font-size:11px;color:var(--text3);}
-  .api-section{padding:1rem;border-bottom:1px solid var(--border);}
-  .api-section label{font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;}
-  .api-section input{width:100%;font-size:12px;padding:7px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:monospace;}
-  .api-section input:focus{outline:none;border-color:var(--accent);}
+  .sb-section{padding:1rem;border-bottom:1px solid var(--border);}
+  .sb-section .lbl{font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;}
+  .api-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .api-status{flex:1;font-size:12px;font-style:italic;color:var(--text3);}
   .api-hint{font-size:11px;color:var(--text3);margin-top:5px;}
   .api-hint a{color:var(--accent);}
-  .docs-section{padding:1rem;display:flex;flex-direction:column;gap:10px;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 14px;font-size:13px;font-family:inherit;border-radius:var(--radius-sm);cursor:pointer;font-weight:500;transition:opacity .1s,background .1s;border:1px solid transparent;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn-primary{background:var(--accent);color:white;border-color:var(--accent);}
+  .btn-primary:hover:not(:disabled){opacity:.88;}
+  .btn-ghost{background:transparent;color:var(--text);border-color:var(--border2);}
+  .btn-ghost:hover:not(:disabled){background:var(--surface2);}
+  .btn-sm{padding:5px 10px;font-size:12px;}
+  .subbie-add{display:flex;gap:6px;margin-bottom:10px;}
+  .subbie-add input{flex:1;font-size:12px;padding:7px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;}
+  .subbie-add input:focus{outline:none;border-color:var(--accent);}
+  .subbie-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--radius-sm);margin-bottom:4px;background:var(--surface2);border:1px solid var(--border);font-size:12px;}
+  .subbie-item input[type=checkbox]{width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:var(--accent);}
+  .subbie-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);cursor:pointer;}
+  .subbie-name:hover{text-decoration:underline dotted;}
+  .subbie-name[contenteditable=true]{outline:1px solid var(--accent);background:white;border-radius:2px;padding:1px 3px;white-space:normal;}
+  .subbie-docs-btn{background:none;border:none;cursor:pointer;color:var(--accent);font-size:11px;flex-shrink:0;text-decoration:underline;padding:0;}
+  .subbie-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;line-height:1;flex-shrink:0;padding:0 2px;}
+  .subbie-del:hover{color:var(--danger);}
   .docs-dropdown{border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;}
-  .docs-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 12px;font-size:12px;font-weight:600;color:var(--text2);background:var(--surface2);border:none;cursor:pointer;font-family:inherit;text-align:left;-webkit-tap-highlight-color:transparent;}
+  .docs-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 12px;font-size:12px;font-weight:600;color:var(--text2);background:var(--surface2);border:none;cursor:pointer;font-family:inherit;text-align:left;}
   .docs-toggle:hover{background:var(--border);}
-  .docs-toggle .toggle-arrow{font-size:10px;transition:transform .2s;}
-  .docs-toggle.open .toggle-arrow{transform:rotate(180deg);}
+  .docs-toggle .ar{font-size:10px;transition:transform .2s;}
+  .docs-toggle.open .ar{transform:rotate(180deg);}
   .docs-body{display:none;border-top:1px solid var(--border);}
   .docs-body.open{display:block;}
   .docs-body-inner{max-height:220px;overflow-y:auto;padding:6px;}
-  .sec-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;}
-  /* Upload button — large tap target, real button */
-  .upload-btn-wrap{position:relative;overflow:hidden;}
-  .upload-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;font-size:13px;font-family:inherit;font-weight:500;color:var(--accent);background:var(--accent-bg);border:1.5px dashed var(--accent);border-radius:var(--radius-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;}
-  /* The real file input sits on top of the button, fully covering it, invisible */
-  .upload-btn-wrap input[type=file]{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:100px;}
-  /* docs-list now inside dropdown body */
   .doc-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--radius-sm);margin-bottom:4px;background:var(--surface2);border:1px solid var(--border);font-size:12px;}
-  .doc-item .doc-icon{font-size:13px;flex-shrink:0;}
-  .doc-item .doc-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);cursor:pointer;}
-  .doc-item .doc-name:hover{text-decoration:underline;text-decoration-style:dotted;}
-  .doc-item .doc-name[contenteditable=true]{outline:1px solid var(--accent);border-radius:2px;white-space:normal;overflow:visible;background:white;padding:1px 3px;}
-
-  .doc-item .doc-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0 3px;line-height:1;flex-shrink:0;}
-  .doc-item .doc-del:hover{color:var(--danger);}
+  .doc-icon{font-size:13px;flex-shrink:0;}
+  .doc-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);cursor:pointer;}
+  .doc-name:hover{text-decoration:underline dotted;}
+  .doc-name[contenteditable=true]{outline:1px solid var(--accent);background:white;border-radius:2px;padding:1px 3px;white-space:normal;overflow:visible;}
+  .doc-assign-btn{background:none;border:none;cursor:pointer;color:var(--accent);font-size:11px;flex-shrink:0;text-decoration:underline;padding:0;}
+  .doc-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;line-height:1;flex-shrink:0;padding:0 2px;}
+  .doc-del:hover{color:var(--danger);}
   .docs-empty{font-size:11px;color:var(--text3);text-align:center;padding:12px 0;font-style:italic;}
-  .sidebar-note{padding:10px 1rem;border-top:1px solid var(--border);font-size:10px;color:var(--text3);line-height:1.5;}
+  .upload-btn-wrap{position:relative;overflow:hidden;margin-bottom:8px;}
+  .upload-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;font-size:13px;font-weight:500;color:var(--accent);background:var(--accent-bg);border:1.5px dashed var(--accent);border-radius:var(--radius-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .upload-btn-wrap input[type=file]{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:100px;}
+  .upload-btn-wrap.dragover .upload-btn{background:var(--accent);color:#fff;border-style:solid;}
+  .sb-note{padding:10px 1rem;font-size:10px;color:var(--text3);line-height:1.5;}
   .page-header{margin-bottom:1.5rem;}
-  .page-header h1{font-size:20px;font-weight:600;color:var(--text);}
+  .page-header h1{font-size:20px;font-weight:600;}
   .page-header p{font-size:13px;color:var(--text2);margin-top:3px;}
-  .date-bar{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:13px;}
+  .warn-banner{background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:#7a6010;margin-bottom:1rem;display:none;}
+  .warn-banner.show{display:block;}
+  .date-bar{display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:13px;}
   .date-bar label{color:var(--text2);font-weight:500;}
   .date-bar input{border:none;background:transparent;color:var(--text);font-size:13px;font-family:inherit;}
   .date-bar input:focus{outline:none;}
+  .add-trade-bar{display:flex;gap:8px;align-items:center;margin-bottom:1.25rem;}
+  .picker-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 12px;font-size:13px;font-family:inherit;color:var(--text);background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;text-align:left;}
+  .picker-toggle.open{border-color:var(--accent);}
+  #pickerSummary{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .picker-arrow{font-size:10px;color:var(--text3);transition:transform .2s;margin-left:8px;}
+  .picker-toggle.open .picker-arrow{transform:rotate(180deg);}
+  .picker-options{display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px;z-index:50;max-height:260px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.1);}
+  .picker-options.open{display:block;}
+  .picker-opt{display:flex;align-items:center;gap:10px;padding:9px 10px;cursor:pointer;border-radius:4px;font-size:13px;}
+  .picker-opt:hover{background:var(--surface2);}
+  .picker-opt input[type=checkbox]{width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:var(--accent);}
+  .picker-empty{font-size:12px;color:var(--text3);text-align:center;padding:12px;font-style:italic;}
   .trades-list{display:flex;flex-direction:column;gap:1rem;}
   .trade-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .wb-card{margin-bottom:16px;}
+  .wb-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .wb-title{font-size:14px;font-weight:600;color:var(--text);}
+  .wb-sub{font-size:12px;color:var(--text3);}
+  .wb-body{padding:14px 16px;}
+  .wb-row{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;}
+  .wb-file-wrap{flex:1;min-width:200px;margin-bottom:0;}
+  .wb-status{margin-top:12px;font-size:13px;line-height:1.6;display:none;}
+  .wb-status.show{display:block;}
+  .wb-summary{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;}
+  .wb-draft{display:inline-block;background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--radius-sm);padding:2px 8px;font-size:11px;font-weight:600;margin-bottom:8px;}
+  .wb-unmatched{background:var(--danger-bg);border:1px solid var(--danger);border-radius:var(--radius-sm);padding:8px 12px;margin-top:8px;font-size:12px;}
+  .wb-uncertain{background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--radius-sm);padding:8px 12px;margin-top:8px;font-size:12px;}
+  .wb-deliveries{background:#fff;border:1px dashed var(--border2);border-radius:var(--radius-sm);padding:6px 10px;margin-top:6px;font-size:12px;user-select:all;}
+  .wb-err{color:var(--danger);}
   .trade-head{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--surface2);border-bottom:1px solid var(--border);}
-  .trade-label{flex:1;font-size:14px;font-weight:600;color:var(--text);cursor:pointer;padding:2px 4px;border-radius:4px;}
-  .trade-label:hover{background:var(--border);}
-  .trade-label[contenteditable=true]{outline:1px solid var(--accent);background:white;}
-  .edit-hint{font-size:10px;color:var(--text3);font-style:italic;}
+  .trade-label{flex:1;font-size:14px;font-weight:600;color:var(--text);}
+  .trade-docs-count{font-size:11px;color:var(--text3);}
   .btn-del-trade{background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:2px 5px;border-radius:4px;line-height:1;}
   .btn-del-trade:hover{color:var(--danger);background:var(--danger-bg);}
-  .trade-body{padding:14px;display:flex;flex-direction:column;gap:10px;}
-  .trade-body textarea{width:100%;min-height:80px;resize:vertical;font-size:13px;font-family:inherit;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;line-height:1.55;}
+  .trade-body{padding:14px;display:flex;flex-direction:column;gap:12px;}
+  .field-label{display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;}
+  .trade-body textarea{width:100%;min-height:80px;resize:vertical;overflow:hidden;font-size:13px;font-family:inherit;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;line-height:1.55;}
   .trade-body textarea:focus{outline:none;border-color:var(--accent);}
   .trade-body textarea::placeholder{color:var(--text3);}
+  .loc-dropdown{position:relative;}
+  .loc-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 12px;font-size:13px;font-family:inherit;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;text-align:left;}
+  .loc-toggle.open{border-color:var(--accent);}
+  .loc-summary{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .loc-summary.empty{color:var(--text3);}
+  .loc-arrow{font-size:10px;color:var(--text3);transition:transform .2s;margin-left:8px;}
+  .loc-toggle.open .loc-arrow{transform:rotate(180deg);}
+  .loc-options{display:none;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px;}
+  .loc-options.open{display:block;}
+  .loc-opt{display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-radius:4px;font-size:13px;}
+  .loc-opt:hover{background:var(--surface2);}
+  .loc-opt input[type=checkbox]{width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:var(--accent);}
   .trade-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-  .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:13px;font-family:inherit;border-radius:var(--radius-sm);cursor:pointer;font-weight:500;transition:opacity .1s,background .1s;}
-  .btn:disabled{opacity:.45;cursor:not-allowed;}
-  .btn-primary{background:var(--accent);color:white;border:1px solid var(--accent);}
-  .btn-primary:hover:not(:disabled){opacity:.88;}
-  .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border2);}
-  .btn-ghost:hover:not(:disabled){background:var(--surface2);}
-  .btn-sm{padding:5px 10px;font-size:12px;}
   .badge-ok{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;border-radius:20px;background:var(--success-bg);color:var(--success);font-weight:500;}
   .badge-ok::before{content:"✓";}
   .error-msg{font-size:12px;color:var(--danger);}
   .loading-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);}
   .spinner{width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .75s linear infinite;flex-shrink:0;}
   @keyframes spin{to{transform:rotate(360deg);}}
-  .results-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;line-height:1.7;color:var(--text);}
+  .results-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;line-height:1.7;}
+  .ht-grid{display:grid;grid-template-columns:1.5fr 1.5fr 1fr 1fr;gap:14px;align-items:start;}
+  @media(max-width:1180px){ .ht-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  @media(max-width:680px){ .ht-grid{grid-template-columns:1fr;} }
+  .ht-box{display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .ht-box-head{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:26px;}
+  .ht-static{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;line-height:1.5;min-height:44px;word-break:break-word;}
+  .ht-static.muted{color:var(--text3);}
+  .emp-select{width:100%;padding:10px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer;}
   .results-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
   .results-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;}
   .results-list{list-style:none;padding:0;}
   .results-list li{position:relative;padding:2px 0 2px 16px;}
   .results-list li::before{content:"–";position:absolute;left:0;color:var(--text3);}
+  .results-src{font-size:11px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
   .placeholder-txt{font-size:13px;color:var(--text3);font-style:italic;}
   .bottom-bar{margin-top:1.25rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);}
-  .add-form{display:flex;gap:8px;align-items:center;}
-  .add-form input{font-size:13px;padding:7px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;width:210px;}
-  .add-form input:focus{outline:none;border-color:var(--accent);}
-  .sep{width:1px;height:24px;background:var(--border);}
-  .export-bar{margin-top:1rem;display:flex;gap:10px;}
-  .warn-banner{background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:#7a6010;margin-bottom:1rem;display:none;}
-  .warn-banner.show{display:block;}
+  .export-bar{margin-top:1rem;display:flex;gap:10px;flex-wrap:wrap;}
+  .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;}
+  .modal-box{background:var(--surface);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.18);max-height:85vh;overflow-y:auto;}
+  .modal-box h3{font-size:15px;font-weight:600;margin-bottom:6px;}
+  .modal-box p{font-size:12px;color:var(--text2);margin-bottom:14px;}
+  .modal-box input[type=text]{width:100%;font-size:13px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;margin-bottom:14px;}
+  .modal-box input[type=text]:focus{outline:none;border-color:var(--accent);}
+  .modal-hint{font-size:11px;color:var(--text3);margin-top:-10px;margin-bottom:14px;}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;}
+  .assign-list{margin-bottom:14px;max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px;}
+  .assign-opt{display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-radius:4px;font-size:13px;}
+  .assign-opt:hover{background:var(--surface2);}
+  .assign-opt input[type=checkbox]{width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:var(--accent);}
   @media(max-width:680px){
     .shell{flex-direction:column;}
     .sidebar{width:100%;min-width:unset;height:auto;position:static;border-right:none;border-bottom:1px solid var(--border);}
-    .docs-body-inner{max-height:160px;}
     .main{padding:1rem;}
-    .bottom-bar{flex-direction:column;align-items:stretch;gap:8px;}
-    .add-form{flex-direction:column;}
-    .add-form input{width:100%;}
-    .sep{display:none;}
+    .bottom-bar{flex-direction:column;align-items:stretch;}
+    .add-trade-bar{flex-direction:column;align-items:stretch;}
     .btn{justify-content:center;}
-    .edit-hint{display:none;}
   }
   @media print{
-    .sidebar,.bottom-bar,.export-bar,.trade-actions,.date-bar input{display:none!important;}
-    .shell{display:block;}
-    .main{padding:0;max-width:100%;}
+    .sidebar,.bottom-bar,.export-bar,.trade-actions,.add-trade-bar,.date-bar input{display:none!important;}
+    .shell{display:block;}.main{padding:0;max-width:100%;}
     .trade-card{break-inside:avoid;margin-bottom:1rem;border:1px solid #ccc;}
     body{font-size:12px;}
   }
-  /* ── Label prompt modal ── */
-  .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;}
-  .modal-box{background:var(--surface);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.18);}
-  .modal-box h3{font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px;}
-  .modal-box p{font-size:12px;color:var(--text2);margin-bottom:14px;}
-  .modal-box input{width:100%;font-size:13px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;margin-bottom:14px;}
-  .modal-box input:focus{outline:none;border-color:var(--accent);}
-  .modal-hint{font-size:11px;color:var(--text3);margin-top:-10px;margin-bottom:14px;}
-  .modal-actions{display:flex;gap:8px;justify-content:flex-end;}
 </style>
 </head>
 <body>
@@ -140,88 +186,407 @@
     <p>The Ponds High School · #72601</p>
   </div>
 
-  <div class="api-section">
-    <label>Anthropic API Key</label>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-      <span id="apiKeyStatus" style="flex:1;font-size:12px;color:var(--text3);font-style:italic;">Not set</span>
+  <div class="sb-section">
+    <span class="lbl">Anthropic API Key</span>
+    <div class="api-row">
+      <span class="api-status" id="apiKeyStatus" style="color: var(--success); font-style: normal;">sk-ant-api03...RgAA</span>
       <button class="btn btn-ghost btn-sm" onclick="openApiModal()">Set key</button>
     </div>
-    <p class="api-hint">Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. Saved locally only.</p>
+    <p class="api-hint">Get a key at <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a>. Saved locally only.</p>
   </div>
 
-  <div class="docs-section">
-    <span class="sec-label">SWMS &amp; Project Documents</span>
-
-    <!-- Upload button: input overlays the button fully for Android compatibility -->
-    <div class="upload-btn-wrap">
-      <div class="upload-btn">📂 Add document (PDF or TXT)</div>
-      <input type="file" id="fileInput" accept=".pdf,.txt,.text" multiple />
+  <div class="sb-section">
+    <span class="lbl">Subcontractors</span>
+    <div class="subbie-add">
+      <input type="text" id="newSubbieName" placeholder="Add subcontractor name...">
+      <button class="btn btn-ghost btn-sm" onclick="addSubbie()">Add</button>
     </div>
-
-    <!-- Collapsible document list -->
-    <div class="docs-dropdown">
-      <button class="docs-toggle" id="docsToggle" onclick="toggleDocsList()">
-        <span id="docsToggleLabel">View documents (0)</span>
-        <span class="toggle-arrow">▼</span>
+    <div id="subbieList"><div class="subbie-item">
+      <input type="checkbox" checked="" onchange="toggleSubbieInTrades(&#39;GKC&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;GKC&#39;)" title="Tap to rename">GKC</span>
+      <span style="font-size:10px;color:var(--text3);">0 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;GKC&#39;)" title="Remove">×</button>
+    </div><div class="subbie-item">
+      <input type="checkbox" onchange="toggleSubbieInTrades(&#39;JR Electrical&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;JR Electrical&#39;)" title="Tap to rename">JR Electrical</span>
+      <span style="font-size:10px;color:var(--text3);">0 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;JR Electrical&#39;)" title="Remove">×</button>
+    </div><div class="subbie-item">
+      <input type="checkbox" checked="" onchange="toggleSubbieInTrades(&#39;Hired On Time&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;Hired On Time&#39;)" title="Tap to rename">Hired On Time</span>
+      <span style="font-size:10px;color:var(--text3);">0 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;Hired On Time&#39;)" title="Remove">×</button>
+    </div><div class="subbie-item">
+      <input type="checkbox" onchange="toggleSubbieInTrades(&#39;Coates Hire&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;Coates Hire&#39;)" title="Tap to rename">Coates Hire</span>
+      <span style="font-size:10px;color:var(--text3);">2 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;Coates Hire&#39;)" title="Remove">×</button>
+    </div><div class="subbie-item">
+      <input type="checkbox" onchange="toggleSubbieInTrades(&#39;GeoSurv&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;GeoSurv&#39;)" title="Tap to rename">GeoSurv</span>
+      <span style="font-size:10px;color:var(--text3);">0 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;GeoSurv&#39;)" title="Remove">×</button>
+    </div><div class="subbie-item">
+      <input type="checkbox" onchange="toggleSubbieInTrades(&#39;D&amp;C Hydraulics&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;D&amp;C Hydraulics&#39;)" title="Tap to rename">D&amp;C Hydraulics</span>
+      <span style="font-size:10px;color:var(--text3);">1 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;D&amp;C Hydraulics&#39;)" title="Remove">×</button>
+    </div><div class="subbie-item">
+      <input type="checkbox" onchange="toggleSubbieInTrades(&#39;Lipman&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;Lipman&#39;)" title="Tap to rename">Lipman</span>
+      <span style="font-size:10px;color:var(--text3);">0 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;Lipman&#39;)" title="Remove">×</button>
+    </div><div class="subbie-item">
+      <input type="checkbox" onchange="toggleSubbieInTrades(&#39;Douglas Partners&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;Douglas Partners&#39;)" title="Tap to rename">Douglas Partners</span>
+      <span style="font-size:10px;color:var(--text3);">0 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;Douglas Partners&#39;)" title="Remove">×</button>
+    </div><div class="subbie-item">
+      <input type="checkbox" onchange="toggleSubbieInTrades(&#39;1300 Temp Fence&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;1300 Temp Fence&#39;)" title="Tap to rename">1300 Temp Fence</span>
+      <span style="font-size:10px;color:var(--text3);">2 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;1300 Temp Fence&#39;)" title="Remove">×</button>
+    </div><div class="subbie-item">
+      <input type="checkbox" onchange="toggleSubbieInTrades(&#39;Elite Survey&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;Elite Survey&#39;)" title="Tap to rename">Elite Survey</span>
+      <span style="font-size:10px;color:var(--text3);">1 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;Elite Survey&#39;)" title="Remove">×</button>
+    </div><div class="subbie-item">
+      <input type="checkbox" onchange="toggleSubbieInTrades(&#39;Urban Grounds&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;Urban Grounds&#39;)" title="Tap to rename">Urban Grounds</span>
+      <span style="font-size:10px;color:var(--text3);">0 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;Urban Grounds&#39;)" title="Remove">×</button>
+    </div><div class="subbie-item">
+      <input type="checkbox" onchange="toggleSubbieInTrades(&#39;Synthetic Turf&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;Synthetic Turf&#39;)" title="Tap to rename">Synthetic Turf</span>
+      <span style="font-size:10px;color:var(--text3);">0 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;Synthetic Turf&#39;)" title="Remove">×</button>
+    </div><div class="subbie-item">
+      <input type="checkbox" onchange="toggleSubbieInTrades(&#39;Summit Fencing&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;Summit Fencing&#39;)" title="Tap to rename">Summit Fencing</span>
+      <span style="font-size:10px;color:var(--text3);">0 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;Summit Fencing&#39;)" title="Remove">×</button>
+    </div><div class="subbie-item">
+      <input type="checkbox" onchange="toggleSubbieInTrades(&#39;Barnfields&#39;,this.checked)">
+      <span class="subbie-name" onclick="editSubbieName(this,&#39;Barnfields&#39;)" title="Tap to rename">Barnfields</span>
+      <span style="font-size:10px;color:var(--text3);">1 docs</span>
+      <button class="subbie-del" onclick="removeSubbie(&#39;Barnfields&#39;)" title="Remove">×</button>
+    </div></div>
+    <div class="docs-dropdown" style="margin-top:8px;">
+      <button class="docs-toggle" id="benchToggle" onclick="toggleBenchList()">
+        <span id="benchToggleLabel">Bench (0)</span>
+        <span class="ar">▼</span>
       </button>
-      <div class="docs-body" id="docsBody">
-        <div class="docs-body-inner">
-          <div id="docsList"></div>
-        </div>
+      <div class="docs-body" id="benchBody">
+        <div class="docs-body-inner"><div id="benchList"></div></div>
+      </div>
+    </div>
+    <div class="upload-btn-wrap" style="margin-top:8px;">
+      <div class="upload-btn" style="font-size:11px;padding:8px;">⬆ Import HammerTech employer export (.xlsx)</div>
+      <input type="file" id="empFileInput" accept=".xlsx">
+    </div>
+  </div>
+
+  <div class="sb-section">
+    <span class="lbl">Locations of Works</span>
+    <div class="subbie-add">
+      <input type="text" id="newLocationName" placeholder="Add location...">
+      <button class="btn btn-ghost btn-sm" onclick="addLocation()">Add</button>
+    </div>
+    <div class="docs-dropdown">
+      <button class="docs-toggle" id="locToggle" onclick="toggleLocList()">
+        <span id="locToggleLabel">View locations</span>
+        <span class="ar">▼</span>
+      </button>
+      <div class="docs-body" id="locBody">
+        <div class="docs-body-inner"><div id="locList"></div></div>
       </div>
     </div>
   </div>
 
-  <div style="padding:0 1rem 1rem;display:flex;gap:8px;">
-    <button class="btn btn-ghost btn-sm" style="flex:1;font-size:11px;" onclick="exportSettings()">⬇ Export settings</button>
-    <label class="btn btn-ghost btn-sm" style="flex:1;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
-      ⬆ Import settings
-      <input type="file" id="importInput" accept=".json" style="position:absolute;opacity:0;width:1px;height:1px;overflow:hidden;" />
-    </label>
+  <div class="sb-section">
+    <span class="lbl">SWMS &amp; Documents</span>
+    <div class="upload-btn-wrap" id="uploadZone">
+      <div class="upload-btn">📂 Add document — tap or drag &amp; drop (PDF/TXT)</div>
+      <input type="file" id="fileInput" accept=".pdf,.txt,.text" multiple="">
+    </div>
+    <div class="docs-dropdown">
+      <button class="docs-toggle open" id="docsToggle" onclick="toggleDocsList()">
+        <span id="docsToggleLabel">View documents (8)</span>
+        <span class="ar">▼</span>
+      </button>
+      <div class="docs-body open" id="docsBody">
+        <div class="docs-body-inner"><div id="docsList"><div class="doc-item" style="flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;width:100%;">
+        <span class="doc-icon">📄</span>
+        <span class="doc-name" onclick="editDocName(this,&#39;b0&#39;)" title="Tap to rename">Lipman - Project Risk Assessment #72601</span>
+        <button class="doc-del" onclick="removeDoc(&#39;b0&#39;)" title="Remove">×</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;width:100%;padding-left:21px;">
+        <span style="font-size:10px;color:var(--text3);flex:1;">PRA — applies to all</span>
+        
+      </div>
+    </div><div class="doc-item" style="flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;width:100%;">
+        <span class="doc-icon">📄</span>
+        <span class="doc-name" onclick="editDocName(this,&#39;u1780371958391wxum6mmzqw&#39;)" title="Tap to rename">1300 TEMPFENCE - Fencing Installation</span>
+        <button class="doc-del" onclick="removeDoc(&#39;u1780371958391wxum6mmzqw&#39;)" title="Remove">×</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;width:100%;padding-left:21px;">
+        <span style="font-size:10px;color:var(--text3);flex:1;">1300 Temp Fence</span>
+        <button class="doc-assign-btn" onclick="openAssignModal(&#39;u1780371958391wxum6mmzqw&#39;)">assign</button>
+      </div>
+    </div><div class="doc-item" style="flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;width:100%;">
+        <span class="doc-icon">📄</span>
+        <span class="doc-name" onclick="editDocName(this,&#39;u1780371983111tf9mc1yffzd&#39;)" title="Tap to rename">1300 TEMPFENCE - Hoarding Installation</span>
+        <button class="doc-del" onclick="removeDoc(&#39;u1780371983111tf9mc1yffzd&#39;)" title="Remove">×</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;width:100%;padding-left:21px;">
+        <span style="font-size:10px;color:var(--text3);flex:1;">1300 Temp Fence</span>
+        <button class="doc-assign-btn" onclick="openAssignModal(&#39;u1780371983111tf9mc1yffzd&#39;)">assign</button>
+      </div>
+    </div><div class="doc-item" style="flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;width:100%;">
+        <span class="doc-icon">📄</span>
+        <span class="doc-name" onclick="editDocName(this,&#39;u1780372025056z4op1bdfdm&#39;)" title="Tap to rename">Barnfield - Carpentry Works</span>
+        <button class="doc-del" onclick="removeDoc(&#39;u1780372025056z4op1bdfdm&#39;)" title="Remove">×</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;width:100%;padding-left:21px;">
+        <span style="font-size:10px;color:var(--text3);flex:1;">Barnfields</span>
+        <button class="doc-assign-btn" onclick="openAssignModal(&#39;u1780372025056z4op1bdfdm&#39;)">assign</button>
+      </div>
+    </div><div class="doc-item" style="flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;width:100%;">
+        <span class="doc-icon">📄</span>
+        <span class="doc-name" onclick="editDocName(this,&#39;u1780372093570ffn3qrqfpt9&#39;)" title="Tap to rename">Borger Cranes - Lifting Works</span>
+        <button class="doc-del" onclick="removeDoc(&#39;u1780372093570ffn3qrqfpt9&#39;)" title="Remove">×</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;width:100%;padding-left:21px;">
+        <span style="font-size:10px;color:var(--text3);flex:1;">Coates Hire</span>
+        <button class="doc-assign-btn" onclick="openAssignModal(&#39;u1780372093570ffn3qrqfpt9&#39;)">assign</button>
+      </div>
+    </div><div class="doc-item" style="flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;width:100%;">
+        <span class="doc-icon">📄</span>
+        <span class="doc-name" onclick="editDocName(this,&#39;u1780372112201j98r68c5zio&#39;)" title="Tap to rename">Coates - Install Portable Buildings</span>
+        <button class="doc-del" onclick="removeDoc(&#39;u1780372112201j98r68c5zio&#39;)" title="Remove">×</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;width:100%;padding-left:21px;">
+        <span style="font-size:10px;color:var(--text3);flex:1;">Coates Hire</span>
+        <button class="doc-assign-btn" onclick="openAssignModal(&#39;u1780372112201j98r68c5zio&#39;)">assign</button>
+      </div>
+    </div><div class="doc-item" style="flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;width:100%;">
+        <span class="doc-icon">📄</span>
+        <span class="doc-name" onclick="editDocName(this,&#39;u1780372128377n3nwdc6xs2&#39;)" title="Tap to rename">D&amp;C Hydraulics - Hydraulics Works</span>
+        <button class="doc-del" onclick="removeDoc(&#39;u1780372128377n3nwdc6xs2&#39;)" title="Remove">×</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;width:100%;padding-left:21px;">
+        <span style="font-size:10px;color:var(--text3);flex:1;">D&amp;C Hydraulics</span>
+        <button class="doc-assign-btn" onclick="openAssignModal(&#39;u1780372128377n3nwdc6xs2&#39;)">assign</button>
+      </div>
+    </div><div class="doc-item" style="flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;width:100%;">
+        <span class="doc-icon">📄</span>
+        <span class="doc-name" onclick="editDocName(this,&#39;u1780372147773tgcugudilu&#39;)" title="Tap to rename">Elite Survey - Survey Works</span>
+        <button class="doc-del" onclick="removeDoc(&#39;u1780372147773tgcugudilu&#39;)" title="Remove">×</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;width:100%;padding-left:21px;">
+        <span style="font-size:10px;color:var(--text3);flex:1;">Elite Survey</span>
+        <button class="doc-assign-btn" onclick="openAssignModal(&#39;u1780372147773tgcugudilu&#39;)">assign</button>
+      </div>
+    </div></div></div>
+      </div>
+    </div>
+    <div style="margin-top:10px;border-top:1px dashed var(--border);padding-top:10px;">
+      <span class="lbl" style="font-size:10px;margin-bottom:6px;">GitHub SWMS Repository</span>
+      <input type="text" id="ghRepoInput" placeholder="owner/repo or GitHub URL (optional /folder)" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;">
+      <input type="password" id="ghTokenInput" placeholder="Access token (private repo only)" style="width:100%;margin-top:6px;padding:8px 10px;font-size:12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;">
+      <div style="display:flex;gap:6px;align-items:center;margin-top:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="saveGhRepo()">Save &amp; sync</button>
+        <button class="btn btn-ghost btn-sm" onclick="syncGithub(true)">Sync now</button>
+        <span id="ghStatus" style="font-size:10px;color:var(--text3);flex:1;"></span>
+      </div>
+    </div>
   </div>
-  <div class="sidebar-note">
-    Use Export/Import to sync documents and trades between devices.
+
+  <div class="sb-section" style="border-bottom:none;">
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost btn-sm" style="flex:1;font-size:11px;" onclick="exportSettings()">⬇ Export</button>
+      <label class="btn btn-ghost btn-sm" style="flex:1;font-size:11px;cursor:pointer;position:relative;">
+        ⬆ Import
+        <input type="file" id="importInput" accept=".json" style="position:absolute;opacity:0;width:1px;height:1px;">
+      </label>
+    </div>
   </div>
+  <div class="sb-note">Tap a subbie, location, or document name to rename. The ✕ checkbox moves a subbie to/from the bench. Assign documents via "docs"/"assign". Export/Import to sync devices.</div>
 </aside>
 
 <main class="main">
   <div class="page-header">
     <h1>Daily hazard controls</h1>
-    <p>Enter each trade's activities, then generate site-specific controls.</p>
+    <p>Tick subcontractors working today, enter activities &amp; location, then generate.</p>
   </div>
-
   <div class="warn-banner" id="warnBanner">⚠ No API key set. Enter your Anthropic API key in the sidebar.</div>
-
   <div class="date-bar">
     <label for="siteDate">Site date:</label>
-    <input type="date" id="siteDate"/>
+    <input type="date" id="siteDate">
   </div>
-
-  <div class="trades-list" id="tradesList"></div>
-
-  <div class="bottom-bar">
-    <div class="add-form">
-      <input type="text" id="newTradeName" placeholder="New trade name..."/>
-      <button class="btn btn-ghost" onclick="addTrade()">+ Add trade</button>
+  <div class="add-trade-bar">
+    <div class="picker-dropdown" style="flex:1;position:relative;">
+      <button type="button" class="picker-toggle" id="pickerToggle" onclick="togglePicker()">
+        <span id="pickerSummary" style="color: var(--text);">GKC, Hired On Time</span>
+        <span class="picker-arrow">▼</span>
+      </button>
+      <div class="picker-options" id="pickerOptions"><label class="picker-opt">
+      <input type="checkbox" value="GKC" checked="" onchange="onPickerToggle(&#39;GKC&#39;,this.checked)">
+      <span>GKC</span>
+    </label><label class="picker-opt">
+      <input type="checkbox" value="JR Electrical" onchange="onPickerToggle(&#39;JR Electrical&#39;,this.checked)">
+      <span>JR Electrical</span>
+    </label><label class="picker-opt">
+      <input type="checkbox" value="Hired On Time" checked="" onchange="onPickerToggle(&#39;Hired On Time&#39;,this.checked)">
+      <span>Hired On Time</span>
+    </label><label class="picker-opt">
+      <input type="checkbox" value="Coates Hire" onchange="onPickerToggle(&#39;Coates Hire&#39;,this.checked)">
+      <span>Coates Hire</span>
+    </label><label class="picker-opt">
+      <input type="checkbox" value="GeoSurv" onchange="onPickerToggle(&#39;GeoSurv&#39;,this.checked)">
+      <span>GeoSurv</span>
+    </label><label class="picker-opt">
+      <input type="checkbox" value="D&amp;C Hydraulics" onchange="onPickerToggle(&#39;D&amp;C Hydraulics&#39;,this.checked)">
+      <span>D&amp;C Hydraulics</span>
+    </label><label class="picker-opt">
+      <input type="checkbox" value="Lipman" onchange="onPickerToggle(&#39;Lipman&#39;,this.checked)">
+      <span>Lipman</span>
+    </label><label class="picker-opt">
+      <input type="checkbox" value="Douglas Partners" onchange="onPickerToggle(&#39;Douglas Partners&#39;,this.checked)">
+      <span>Douglas Partners</span>
+    </label><label class="picker-opt">
+      <input type="checkbox" value="1300 Temp Fence" onchange="onPickerToggle(&#39;1300 Temp Fence&#39;,this.checked)">
+      <span>1300 Temp Fence</span>
+    </label><label class="picker-opt">
+      <input type="checkbox" value="Elite Survey" onchange="onPickerToggle(&#39;Elite Survey&#39;,this.checked)">
+      <span>Elite Survey</span>
+    </label><label class="picker-opt">
+      <input type="checkbox" value="Urban Grounds" onchange="onPickerToggle(&#39;Urban Grounds&#39;,this.checked)">
+      <span>Urban Grounds</span>
+    </label><label class="picker-opt">
+      <input type="checkbox" value="Synthetic Turf" onchange="onPickerToggle(&#39;Synthetic Turf&#39;,this.checked)">
+      <span>Synthetic Turf</span>
+    </label><label class="picker-opt">
+      <input type="checkbox" value="Summit Fencing" onchange="onPickerToggle(&#39;Summit Fencing&#39;,this.checked)">
+      <span>Summit Fencing</span>
+    </label><label class="picker-opt">
+      <input type="checkbox" value="Barnfields" onchange="onPickerToggle(&#39;Barnfields&#39;,this.checked)">
+      <span>Barnfields</span>
+    </label></div>
     </div>
-    <div class="sep"></div>
+  </div>
+  <div class="trade-card wb-card" id="wbCard">
+    <div class="wb-head">
+      <span class="wb-title">📋 1pm Meeting</span>
+      <span class="wb-sub">Upload the typed meeting draft (PDF/TXT) or a whiteboard photo — extraction pre-fills the trade cards below as a draft.</span>
+    </div>
+    <div class="wb-body">
+      <div class="wb-row">
+        <div class="upload-btn-wrap wb-file-wrap">
+          <div class="upload-btn" id="wbFileLabel">📎 Choose meeting draft (PDF/TXT) or photo</div>
+          <input type="file" id="wbFileInput" accept="image/*,.pdf,.txt">
+        </div>
+        <button class="btn btn-primary" id="wbExtractBtn" onclick="extractWhiteboard()">Extract</button>
+      </div>
+      <div class="wb-status" id="wbStatus"></div>
+    </div>
+  </div>
+  <div class="trades-list" id="tradesList"><div class="trade-card">
+      <div class="trade-head">
+        <span class="trade-label">GKC</span>
+        <span class="trade-docs-count">0 SWMS + PRA</span>
+        <button class="btn-del-trade" data-del="15" title="Remove from today">×</button>
+      </div>
+      <div class="trade-body">
+        <div>
+          <label class="field-label">Activities</label>
+          <textarea id="act-15" placeholder="Describe this subcontractor&#39;s activities for the day…">Relocate sand and gravel stockples from NE carpark to Milestone 2A
+Prep and form remaining kerb and paths sub base
+Import DGB and compact to Futsal Court</textarea>
+        </div>
+        <div>
+          <label class="field-label">Location of works</label>
+          <div class="loc-dropdown">
+            <button type="button" class="loc-toggle" data-loctoggle="15">
+              <span class="loc-summary ">3 locations selected</span>
+              <span class="loc-arrow">▼</span>
+            </button>
+            <div class="loc-options" id="locopts-15">
+              <label class="loc-opt"><input type="checkbox" data-loccheck="15" value="NE Carpark" checked=""><span>NE Carpark</span></label><label class="loc-opt"><input type="checkbox" data-loccheck="15" value="Futsal Court" checked=""><span>Futsal Court</span></label><label class="loc-opt"><input type="checkbox" data-loccheck="15" value="Main Compound"><span>Main Compound</span></label><label class="loc-opt"><input type="checkbox" data-loccheck="15" value="Staff Carpark Entry" checked=""><span>Staff Carpark Entry</span></label>
+            </div>
+          </div>
+        </div>
+        <div class="trade-actions">
+          <button class="btn btn-primary" data-gen="15">Generate controls</button>
+          <span class="badge-ok">Generated</span>
+        </div>
+        <div class="results-box">
+        <div class="results-top"><span class="results-label">Hazard controls</span>
+        <button class="btn btn-ghost btn-sm" data-copy="15">Copy</button></div>
+        <ul class="results-list"><li>All stockpile relocation and earthworks confined within temp fencing; no materials or plant outside hoarding line</li><li>Pre-start checklists completed for all plant (excavator, compactor, trucks); licensed operators only; exclusion zones maintained around operating plant</li><li>Traffic control in place per GKC Traffic Control SWMS; trucks enter/exit under traffic controller direction only</li><li>Before You Dig / service locating completed prior to any ground-penetrating works at NE Carpark, Futsal Court, and Staff Carpark Entry</li><li>Sediment controls (silt fencing, stabilised entry/exit) inspected and maintained prior to commencing earthworks; no sediment tracking onto public areas</li><li>DGB import and compaction at Futsal Court: suppress dust with water; PPE minimum hi-vis, hard hat, steel-cap boots, safety glasses, gloves</li><li>HammerTech induction and pre-commencement checklist completed by all workers before starting</li><li>Staff Carpark Entry shared zone with Hired On Time: GKC to demarcate their work zone using controls per GKC Sediment Control SWMS; coordination of works with Hired On Time confirmed at daily 1pm site coordination meeting</li></ul>
+        <div class="results-src">Based on: Lipman - Project Risk Assessment #72601</div>
+      </div>
+      </div></div><div class="trade-card">
+      <div class="trade-head">
+        <span class="trade-label">Hired On Time</span>
+        <span class="trade-docs-count">0 SWMS + PRA</span>
+        <button class="btn-del-trade" data-del="18" title="Remove from today">×</button>
+      </div>
+      <div class="trade-body">
+        <div>
+          <label class="field-label">Activities</label>
+          <textarea id="act-18" placeholder="Describe this subcontractor&#39;s activities for the day…">Pedestrian and Internal traffic management to carpark entry and footpath. </textarea>
+        </div>
+        <div>
+          <label class="field-label">Location of works</label>
+          <div class="loc-dropdown">
+            <button type="button" class="loc-toggle" data-loctoggle="18">
+              <span class="loc-summary ">Staff Carpark Entry</span>
+              <span class="loc-arrow">▼</span>
+            </button>
+            <div class="loc-options" id="locopts-18">
+              <label class="loc-opt"><input type="checkbox" data-loccheck="18" value="NE Carpark"><span>NE Carpark</span></label><label class="loc-opt"><input type="checkbox" data-loccheck="18" value="Futsal Court"><span>Futsal Court</span></label><label class="loc-opt"><input type="checkbox" data-loccheck="18" value="Main Compound"><span>Main Compound</span></label><label class="loc-opt"><input type="checkbox" data-loccheck="18" value="Staff Carpark Entry" checked=""><span>Staff Carpark Entry</span></label>
+            </div>
+          </div>
+        </div>
+        <div class="trade-actions">
+          <button class="btn btn-primary" data-gen="18">Generate controls</button>
+          <span class="badge-ok">Generated</span>
+        </div>
+        <div class="results-box">
+        <div class="results-top"><span class="results-label">Hazard controls</span>
+        <button class="btn btn-ghost btn-sm" data-copy="18">Copy</button></div>
+        <ul class="results-list"><li>Hired On Time supervisor to attend daily 1pm site coordination meeting to confirm sequencing and separation of works with GKC at Staff Carpark Entry</li><li>Demarcate Hired On Time work zone using traffic cones/witches hats as per Hired On Time Traffic Management SWMS; maintain clear separation from GKC works</li><li>All trucks and vehicles enter/exit Staff Carpark Entry under traffic controller direction only</li><li>Accredited traffic controllers on site; valid RMS traffic control tickets sighted before commencement</li><li>Maintain pedestrian exclusion zones; no student or public interaction; school active</li><li>HammerTech induction and pre-commencement checklist completed before works begin</li><li>Traffic Management Plan in place and followed; all signage and devices per approved TMP</li><li>Minimum PPE: hi-vis, hard hat, steel-cap boots, safety glasses, gloves</li></ul>
+        <div class="results-src">Based on: Lipman - Project Risk Assessment #72601</div>
+      </div>
+      </div></div></div>
+  <div class="bottom-bar">
     <button class="btn btn-primary" id="btnAll" onclick="generateAll()">⚡ Generate all</button>
     <button class="btn btn-ghost" onclick="clearAll()">Clear results</button>
   </div>
-
   <div class="export-bar">
     <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Print / Save PDF</button>
     <button class="btn btn-ghost btn-sm" onclick="exportTxt()">📋 Export as text</button>
   </div>
 </main>
+</div>
 
 <!-- API key modal -->
 <div class="modal-overlay" id="apiModal" style="display:none;">
   <div class="modal-box">
     <h3>Set Anthropic API Key</h3>
     <p>Paste your key below. You can see it here to confirm it's correct before saving.</p>
-    <input type="text" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:12px;letter-spacing:0.03em;"/>
-    <p class="modal-hint">Key is saved in your browser only — never sent anywhere except Anthropic's API.</p>
+    <input type="text" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:12px;">
+    <p class="modal-hint">Saved in your browser only — sent only to Anthropic's API.</p>
     <div class="modal-actions">
       <button class="btn btn-ghost btn-sm" onclick="closeApiModal()">Cancel</button>
       <button class="btn btn-primary btn-sm" onclick="saveApiKey()">Save key</button>
@@ -230,47 +595,130 @@
 </div>
 
 <!-- Label prompt modal -->
-<div class="modal-overlay" id="labelModal" style="display:none;">
-  <div class="modal-box">
-    <h3>Name this document</h3>
-    <p>Enter the label as: <strong>Contractor - Activity</strong></p>
-    <input type="text" id="labelInput" placeholder="e.g. JR Electrical - Site Temporary Power" />
-    <p class="modal-hint">You can tap the label in the list to rename it later.</p>
+<div class="modal-overlay" id="empModal" style="display:none;">
+  <div class="modal-box" style="max-width:460px;">
+    <h3>Import employers</h3>
+    <p id="empSummary" style="font-size:12px;color:var(--text2);margin:4px 0 8px;"></p>
+    <div id="empList" style="max-height:50vh;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;"></div>
+    <p class="modal-hint">New employers are pre-ticked. Likely matches to existing subcontractors are unticked — tick them only if they really are a different company.</p>
     <div class="modal-actions">
-      <button class="btn btn-ghost btn-sm" onclick="cancelLabel()">Cancel</button>
-      <button class="btn btn-primary btn-sm" onclick="confirmLabel()">Save</button>
+      <button class="btn btn-ghost btn-sm" onclick="cancelEmpImport()">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="empAddBtn" onclick="confirmEmpImport()">Add selected</button>
     </div>
   </div>
 </div>
+
+<div class="modal-overlay" id="labelModal" style="display: none;">
+  <div class="modal-box">
+    <h3>Name this document</h3>
+    <p id="labelProgress" style="font-size:11px;color:var(--text3);margin:0 0 8px;"></p>
+    <p>Document name (<strong>Contractor - Activity</strong>):</p>
+    <input type="text" id="labelInput" placeholder="e.g. JR Electrical - Site Temporary Power">
+    <p style="margin:10px 0 4px;">Assign to subcontractor:</p>
+    <select id="labelSubbieSelect" style="width:100%;padding:9px 10px;font-size:13px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;"></select>
+    <p class="modal-hint">Predicted from the filename — adjust if needed. You can also rename later by tapping the label in the list.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="cancelLabel()">Cancel all</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmLabel()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assign-to-subbie modal -->
+<div class="modal-overlay" id="assignModal" style="display: none;">
+  <div class="modal-box">
+    <h3>Assign document to subcontractor(s)</h3>
+    <p id="assignDocName" style="font-weight:600;color:var(--text);">Elite Survey - Survey Works</p>
+    <div class="assign-list" id="assignList">
+    <label class="assign-opt">
+      <input type="checkbox" value="GKC">
+      <span>GKC</span>
+    </label>
+    <label class="assign-opt">
+      <input type="checkbox" value="JR Electrical">
+      <span>JR Electrical</span>
+    </label>
+    <label class="assign-opt">
+      <input type="checkbox" value="Hired On Time">
+      <span>Hired On Time</span>
+    </label>
+    <label class="assign-opt">
+      <input type="checkbox" value="Coates Hire">
+      <span>Coates Hire</span>
+    </label>
+    <label class="assign-opt">
+      <input type="checkbox" value="GeoSurv">
+      <span>GeoSurv</span>
+    </label>
+    <label class="assign-opt">
+      <input type="checkbox" value="D&amp;C Hydraulics">
+      <span>D&amp;C Hydraulics</span>
+    </label>
+    <label class="assign-opt">
+      <input type="checkbox" value="Lipman">
+      <span>Lipman</span>
+    </label>
+    <label class="assign-opt">
+      <input type="checkbox" value="Douglas Partners">
+      <span>Douglas Partners</span>
+    </label>
+    <label class="assign-opt">
+      <input type="checkbox" value="1300 Temp Fence">
+      <span>1300 Temp Fence</span>
+    </label>
+    <label class="assign-opt">
+      <input type="checkbox" value="Elite Survey">
+      <span>Elite Survey</span>
+    </label>
+    <label class="assign-opt">
+      <input type="checkbox" value="Urban Grounds">
+      <span>Urban Grounds</span>
+    </label>
+    <label class="assign-opt">
+      <input type="checkbox" value="Synthetic Turf">
+      <span>Synthetic Turf</span>
+    </label>
+    <label class="assign-opt">
+      <input type="checkbox" value="Summit Fencing">
+      <span>Summit Fencing</span>
+    </label>
+    <label class="assign-opt">
+      <input type="checkbox" value="Barnfields">
+      <span>Barnfields</span>
+    </label></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeAssignModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveAssignment()">Save</button>
+    </div>
+  </div>
 </div>
 
 <script>
-// ── Default built-in documents ──
-const DEFAULT_DOCS = [
-  "Lipman - Project Risk Assessment #72601",
-  "GKC - Site Establishment & Mechanical Excavation",
-  "JR Electrical - Electrical Decommissioning & Commissioning",
-  "JR Electrical - Site Temporary Power & Lighting",
-  "JR Electrical - Underground Trenching & Concrete Cutting",
-  "JR Electrical - Electrical Services Infrastructure Installation",
-  "Hired On Time - Traffic Management HRCW",
-  "Borger Cranes / Coates Hire - Slew Crane Operation",
-  "Coates Hire - Portable Buildings Install, Setup & Remove",
-  "GeoSurv - Site Survey & Utility Locating",
-  "GeoSurv - Non-Destructive & Vacuum Excavation",
-  "D&C Hydraulics - Hydraulic Services & Mains",
-  "Lipman - Materials Handling Telehandler & Forklift"
-];
+const DEFAULT_LOCATIONS = ["NE Carpark", "Main Compound", "Gate 1", "Milestone 3", "Building E", "Building F"];
+// Migration for trades saved under the old preset names:
+const LOCATION_RENAMES = {"Staff Carpark Entry":"Gate 1"};
+const LOCATION_REMOVED = ["Futsal Court"];
+let siteLocations = [];
 
-// ── State ──
-let trades = [
-  {id:0,name:"Civil / Excavation",activities:"",results:null,loading:false,error:null},
-  {id:1,name:"Electrical",activities:"",results:null,loading:false,error:null},
-  {id:2,name:"Traffic Management",activities:"",results:null,loading:false,error:null}
+// Default subbies
+const DEFAULT_SUBBIES = ["GKC","JR Electrical","Hired On Time","Borger Cranes","Coates Hire","GeoSurv","D&C Hydraulics","Lipman"];
+
+// Default docs with their subbie assignment
+const DEFAULT_DOCS = [
+  {name:"Lipman - Project Risk Assessment #72601", subbies:["__PRA__"]},
+  {name:"GKC - Site Establishment & Mechanical Excavation", subbies:["GKC"]},
+  {name:"JR Electrical - Electrical Decommissioning & Commissioning", subbies:["JR Electrical"]},
+  {name:"JR Electrical - Site Temporary Power & Lighting", subbies:["JR Electrical"]},
+  {name:"JR Electrical - Underground Trenching & Concrete Cutting", subbies:["JR Electrical"]},
+  {name:"JR Electrical - Electrical Services Infrastructure Installation", subbies:["JR Electrical"]},
+  {name:"Hired On Time - Traffic Management HRCW", subbies:["Hired On Time"]},
+  {name:"Borger Cranes / Coates Hire - Slew Crane Operation", subbies:["Borger Cranes","Coates Hire"]},
+  {name:"Coates Hire - Portable Buildings Install, Setup & Remove", subbies:["Coates Hire"]},
+  {name:"GeoSurv - Site Survey & Utility Locating", subbies:["GeoSurv"]},
+  {name:"GeoSurv - Non-Destructive & Vacuum Excavation", subbies:["GeoSurv"]},
+  {name:"D&C Hydraulics - Hydraulic Services & Mains", subbies:["D&C Hydraulics"]},
+  {name:"Lipman - Materials Handling Telehandler & Forklift", subbies:["Lipman"]}
 ];
-let nextId = 3;
-// docs: { id, name, type, text, size }
-let docs = [];
 
 const BASE_PROMPT = `You are a construction safety advisor for the Lipman project at The Ponds High School, NSW (Project #72601).
 
@@ -290,424 +738,1295 @@ WORD LIMIT: Target 100 words or less. Only exceed if critical controls genuinely
 
 Respond ONLY with bullet list. Each line: - [control]. No headings, no preamble, no numbering.`;
 
-// ── Init ──
+// State
+let subbies = [];          // ["GKC","JR Electrical",...]
+let docs = [];             // [{id,name,subbies:[],text,size}]
+let trades = [];           // [{id,name,activities,locations:[],results,loading,error}]
+let nextId = 1;
+let _pendingFiles = [];
+let _assignDocId = null;
+
 document.addEventListener("DOMContentLoaded", () => {
-  const tom = new Date(); tom.setDate(tom.getDate() + 1); document.getElementById("siteDate").value = tom.toISOString().split("T")[0];
+  const tom = new Date(); tom.setDate(tom.getDate()+1);
+  document.getElementById("siteDate").value = tom.toISOString().split("T")[0];
   updateApiKeyStatus();
+  loadSubbies();
+  loadLocations();
   loadDocs();
   loadTrades();
+  migrateTradeLocations();
+  renderSubbies();
+  renderLocations();
   renderDocs();
+  renderSubbiePicker();
   renderTrades();
   document.getElementById("fileInput").addEventListener("change", onFileChange);
+  document.getElementById("wbFileInput").addEventListener("change", onWbFileChange);
+  document.getElementById("empFileInput").addEventListener("change", onEmpFileChange);
+  const gc=loadGhCfg();
+  if(gc.owner){
+    const ri=document.getElementById("ghRepoInput"); if(ri) ri.value=gc.display||(gc.owner+"/"+gc.name+(gc.path?"/"+gc.path:""));
+    const ti=document.getElementById("ghTokenInput"); if(ti&&gc.token) ti.value=gc.token;
+    const st=document.getElementById("ghStatus"); if(st&&gc.last) st.textContent="Last synced "+fmtDate(gc.last);
+    syncGithub(false); // silent check for new/updated SWMS on every open
+  }
+  setupDropZone();
   document.getElementById("importInput").addEventListener("change", importSettings);
+  document.getElementById("newSubbieName").addEventListener("keydown", e => { if(e.key==="Enter") addSubbie(); });
+  document.getElementById("newLocationName").addEventListener("keydown", e => { if(e.key==="Enter") addLocation(); });
+  document.getElementById("apiKeyInput").addEventListener("keydown", e => { if(e.key==="Enter") saveApiKey(); if(e.key==="Escape") closeApiModal(); });
+  document.getElementById("labelInput").addEventListener("keydown", e => { if(e.key==="Enter") confirmLabel(); if(e.key==="Escape") cancelLabel(); });
 });
 
-// ── Docs persistence ──
-function loadDocs() {
-  try {
-    const saved = JSON.parse(localStorage.getItem("tphs_docs_v3") || "null");
-    if (saved && Array.isArray(saved)) { docs = saved; return; }
-  } catch(e) {}
-  // First run — seed with built-ins
-  docs = DEFAULT_DOCS.map((name, i) => ({ id: "b" + i, name, type: "uploaded", text: "[SWMS: " + name + "]", size: 0 }));
+// ── Subbies ──
+// Each subbie: {name (display/whiteboard name), htName (HammerTech name, background), aliases:[], benched:false}
+function subbieObj(name,htName){ return {name:String(name),htName:htName||null,aliases:[],benched:false}; }
+function normaliseSubbieList(arr){
+  return arr.map(s=>typeof s==="string"?subbieObj(s):{name:s.name,htName:s.htName||null,aliases:Array.isArray(s.aliases)?s.aliases:[],benched:!!s.benched});
+}
+function loadSubbies(){
+  try{ const s2=JSON.parse(localStorage.getItem("tphs_subbies_v2")||"null"); if(s2&&Array.isArray(s2)){subbies=normaliseSubbieList(s2);sortSubbies();return;} }catch(e){}
+  try{ const s1=JSON.parse(localStorage.getItem("tphs_subbies_v1")||"null"); if(s1&&Array.isArray(s1)){subbies=normaliseSubbieList(s1);sortSubbies();saveSubbies();return;} }catch(e){}
+  subbies=DEFAULT_SUBBIES.map(n=>subbieObj(n)); sortSubbies(); saveSubbies();
+}
+function saveSubbies(){ localStorage.setItem("tphs_subbies_v2",JSON.stringify(subbies)); }
+function sortSubbies(){ subbies.sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:"base"})); }
+function subbieNames(){ return subbies.map(s=>s.name); }
+function activeSubbies(){ return subbies.filter(s=>!s.benched); }
+function benchedSubbies(){ return subbies.filter(s=>s.benched); }
+function subbieByName(name){ return subbies.find(s=>s.name===name)||null; }
+
+// ── Locations of Works ──
+function loadLocations(){
+  try{ const s=JSON.parse(localStorage.getItem("tphs_locations_v1")||"null"); if(s&&Array.isArray(s)&&s.length){siteLocations=s;return;} }catch(e){}
+  siteLocations=[...DEFAULT_LOCATIONS]; saveLocations();
+}
+function saveLocations(){ localStorage.setItem("tphs_locations_v1",JSON.stringify(siteLocations)); }
+function migrateTradeLocations(){
+  // Rename/drop old preset locations in saved trades, and drop any location no longer in the list.
+  trades.forEach(t=>{
+    t.locations=(t.locations||[])
+      .map(l=>LOCATION_RENAMES[l]||l)
+      .filter(l=>!LOCATION_REMOVED.includes(l))
+      .filter(l=>siteLocations.includes(l))
+      .filter((l,i,a)=>a.indexOf(l)===i);
+  });
+  saveTrades();
+}
+function addLocation(){
+  const inp=document.getElementById("newLocationName"); const n=inp.value.trim();
+  if(!n){ inp.focus(); return; }
+  if(siteLocations.some(l=>l.toLowerCase()===n.toLowerCase())){ alert("That location already exists."); return; }
+  captureActivities();
+  siteLocations.push(n); inp.value=""; saveLocations(); renderLocations(); renderTrades();
+}
+function removeLocation(name){
+  if(!confirm('Remove "'+name+'" from the locations list? It will also be unticked from any trade cards using it.')) return;
+  captureActivities();
+  siteLocations=siteLocations.filter(l=>l!==name);
+  trades.forEach(t=>{ t.locations=(t.locations||[]).filter(l=>l!==name); });
+  saveLocations(); saveTrades(); renderLocations(); renderTrades();
+}
+function editLocationName(el,oldName){
+  el.contentEditable="true"; el.focus();
+  const r=document.createRange(); r.selectNodeContents(el);
+  window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+  el.onblur=()=>{
+    el.contentEditable="false";
+    const nn=el.textContent.trim();
+    if(nn && nn!==oldName){
+      captureActivities();
+      const i=siteLocations.indexOf(oldName);
+      if(i>=0) siteLocations[i]=nn;
+      trades.forEach(t=>{ t.locations=(t.locations||[]).map(l=>l===oldName?nn:l); });
+      saveLocations(); saveTrades();
+    }
+    renderLocations(); renderTrades();
+  };
+  el.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); el.blur(); } };
+}
+function renderLocations(){
+  const list=document.getElementById("locList");
+  const label=document.getElementById("locToggleLabel");
+  if(label) label.textContent="View locations ("+siteLocations.length+")";
+  if(!list) return;
+  if(!siteLocations.length){ list.innerHTML='<p class="docs-empty">No locations yet.</p>'; return; }
+  list.innerHTML=siteLocations.map(l=>`<div class="subbie-item">
+    <span class="subbie-name" onclick="editLocationName(this,'${esc(l).replace(/'/g,"\\'")}')" title="Tap to rename">${esc(l)}</span>
+    <button class="subbie-del" onclick="removeLocation('${esc(l).replace(/'/g,"\\'")}')" title="Remove">×</button>
+  </div>`).join("");
+}
+function toggleLocList(){
+  const body=document.getElementById("locBody"), btn=document.getElementById("locToggle");
+  const open=body.classList.toggle("open"); btn.classList.toggle("open",open);
+}
+function addSubbie(){
+  const inp=document.getElementById("newSubbieName"); const n=inp.value.trim();
+  if(!n) {inp.focus();return;}
+  if(subbies.some(s=>s.name.toLowerCase()===n.toLowerCase())){ alert("That subcontractor already exists."); return; }
+  captureActivities();
+  subbies.push(subbieObj(n)); sortSubbies(); inp.value=""; saveSubbies(); renderSubbies(); renderSubbiePicker();
+}
+function removeSubbie(name){
+  if(!confirm('Remove "'+name+'" from the subcontractor list? Documents will remain but lose this assignment.')) return;
+  captureActivities();
+  subbies=subbies.filter(s=>s.name!==name);
+  docs.forEach(d=>{ d.subbies=(d.subbies||[]).filter(s=>s!==name); });
+  saveSubbies(); saveDocs(); renderSubbies(); renderDocs(); renderSubbiePicker();
+}
+function subbieRow(s,inBench){
+  const nm=esc(s.name).replace(/'/g,"\\'");
+  const docCount=docs.filter(d=>(d.subbies||[]).includes(s.name)).length;
+  const inUse=trades.some(t=>t.name===s.name);
+  const htHint=s.htName&&s.htName!==s.name?' title="HammerTech: '+esc(s.htName)+'"':' title="Tap to rename"';
+  return `<div class="subbie-item">
+    ${inBench?'<span class="cb-spacer"></span>':`<input type="checkbox" ${inUse?"checked":""} onchange="toggleSubbieInTrades('${nm}',this.checked)" />`}
+    <span class="subbie-name" onclick="editSubbieName(this,'${nm}')"${htHint}>${esc(s.name)}</span>
+    <span style="font-size:10px;color:var(--text3);">${docCount} docs</span>
+    <button class="subbie-del" onclick="removeSubbie('${nm}')" title="Remove">×</button>
+    <input type="checkbox" class="bench-cb" ${s.benched?"checked":""} onchange="benchSubbie('${nm}',this.checked)" title="${s.benched?"Return to active list":"Move to bench"}" />
+  </div>`;
+}
+function renderSubbies(){
+  const list=document.getElementById("subbieList");
+  const act=activeSubbies(), ben=benchedSubbies();
+  list.innerHTML=act.length?act.map(s=>subbieRow(s,false)).join(""):'<p class="docs-empty">No active subcontractors.</p>';
+  const bl=document.getElementById("benchList"), btl=document.getElementById("benchToggleLabel");
+  if(btl) btl.textContent="Bench ("+ben.length+")";
+  if(bl) bl.innerHTML=ben.length?ben.map(s=>subbieRow(s,true)).join(""):'<p class="docs-empty">Nobody on the bench.</p>';
+}
+function benchSubbie(name,toBench){
+  const s=subbieByName(name);
+  if(!s) return;
+  captureActivities();
+  if(toBench){
+    const t=trades.find(x=>x.name===name);
+    if(t&&(t.activities||"").trim()&&!confirm('"'+name+'" has activities entered for today. Benching removes their trade card. Continue?')){ renderSubbies(); return; }
+    trades=trades.filter(x=>x.name!==name);
+  }
+  s.benched=toBench;
+  saveSubbies(); saveTrades(); renderSubbies(); renderTrades(); renderSubbiePicker(); updatePickerSummary();
+}
+function toggleBenchList(){
+  const body=document.getElementById("benchBody"), btn=document.getElementById("benchToggle");
+  const open=body.classList.toggle("open"); btn.classList.toggle("open",open);
+}
+function editSubbieName(el,oldName){
+  el.contentEditable="true"; el.focus();
+  const r=document.createRange(); r.selectNodeContents(el);
+  window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+  el.onblur=()=>{
+    el.contentEditable="false";
+    const nn=el.textContent.trim();
+    if(nn && nn!==oldName){
+      const s=subbieByName(oldName);
+      if(s) s.name=nn;
+      sortSubbies();
+      docs.forEach(d=>{ d.subbies=(d.subbies||[]).map(x=>x===oldName?nn:x); });
+      trades.forEach(t=>{ if(t.name===oldName) t.name=nn; });
+      saveSubbies(); saveDocs(); saveTrades();
+    }
+    renderSubbies(); renderDocs(); renderSubbiePicker(); renderTrades();
+  };
+  el.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); el.blur(); } };
+}
+function toggleSubbieInTrades(name,checked){
+  captureActivities();
+  if(checked){
+    if(!trades.some(t=>t.name===name))
+      trades.push({id:nextId++,name,activities:"",locations:[],results:null,loading:false,error:null});
+  } else {
+    trades=trades.filter(t=>t.name!==name);
+  }
+  saveTrades(); renderTrades(); renderSubbies(); renderSubbiePicker();
+}
+
+// ── Subbie picker (dropdown in main area) ──
+function renderSubbiePicker(){
+  const opts=document.getElementById("pickerOptions");
+  const act=activeSubbies();
+  if(!act.length){ opts.innerHTML='<p class="picker-empty">No active subcontractors. Add some in the sidebar.</p>'; updatePickerSummary(); return; }
+  opts.innerHTML=act.map(s=>{
+    const checked=trades.some(t=>t.name===s.name);
+    return `<label class="picker-opt">
+      <input type="checkbox" value="${esc(s.name)}" ${checked?"checked":""} onchange="onPickerToggle('${esc(s.name).replace(/'/g,"\\'")}',this.checked)" />
+      <span>${esc(s.name)}</span>
+    </label>`;
+  }).join("");
+  updatePickerSummary();
+}
+function updatePickerSummary(){
+  const sum=document.getElementById("pickerSummary");
+  const active=trades.map(t=>t.name);
+  if(!active.length){ sum.textContent="Select subcontractors working today…"; sum.style.color="var(--text3)"; }
+  else if(active.length<=3){ sum.textContent=active.join(", "); sum.style.color="var(--text)"; }
+  else { sum.textContent=active.length+" subcontractors selected"; sum.style.color="var(--text)"; }
+}
+function togglePicker(){
+  const opts=document.getElementById("pickerOptions"), btn=document.getElementById("pickerToggle");
+  const open=opts.classList.toggle("open"); btn.classList.toggle("open",open);
+}
+function onPickerToggle(name,checked){
+  captureActivities();
+  if(checked){
+    if(!trades.some(t=>t.name===name))
+      trades.push({id:nextId++,name,activities:"",locations:[],results:null,loading:false,error:null});
+  } else {
+    trades=trades.filter(t=>t.name!==name);
+  }
+  saveTrades(); renderTrades(); renderSubbies(); updatePickerSummary();
+}
+
+// ── Docs ──
+function loadDocs(){
+  try{ const s=JSON.parse(localStorage.getItem("tphs_docs_v4")||"null"); if(s&&Array.isArray(s)){docs=s;return;} }catch(e){}
+  docs=DEFAULT_DOCS.map((d,i)=>({id:"b"+i,name:d.name,subbies:d.subbies.slice(),text:"[SWMS: "+d.name+"]",size:0}));
   saveDocs();
 }
-function saveDocs() { localStorage.setItem("tphs_docs_v3", JSON.stringify(docs)); }
-
-function removeDoc(id) {
-  docs = docs.filter(d => d.id !== id);
-  saveDocs(); renderDocs();
+function saveDocs(){ localStorage.setItem("tphs_docs_v4",JSON.stringify(docs)); }
+function removeDoc(id){
+  const d=docs.find(x=>x.id===id);
+  if(d&&d.ghPath&&!confirm('"'+d.name+'" is synced from GitHub — it will come back on the next sync unless you also delete it from the repository. Remove it from the app now?')) return;
+  docs=docs.filter(x=>x.id!==id);
+  if(d) idbDel(d.id);
+  saveDocs(); renderDocs(); renderSubbies();
 }
+function fmtDate(ts){ const d=new Date(ts); return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear(); }
 
-function editDocName(el, id) {
-  el.contentEditable = "true"; el.focus();
-  const range = document.createRange(); range.selectNodeContents(el);
-  window.getSelection().removeAllRanges(); window.getSelection().addRange(range);
-  el.onblur = () => {
-    el.contentEditable = "false";
-    const d = docs.find(x => x.id === id);
-    if (d) { d.name = el.textContent.trim() || d.name; saveDocs(); renderDocs(); }
-  };
-  el.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); el.blur(); } };
-}
+// ── Stored original files (IndexedDB — localStorage can't hold PDF bytes) ──
+let _idb=null;
+function idbOpen(){ return new Promise((res,rej)=>{ if(_idb) return res(_idb); const rq=indexedDB.open("tphs_files",1); rq.onupgradeneeded=()=>rq.result.createObjectStore("files"); rq.onsuccess=()=>{ _idb=rq.result; res(_idb); }; rq.onerror=()=>rej(rq.error); }); }
+function idbPut(key,blob){ return idbOpen().then(db=>new Promise((res,rej)=>{ const tx=db.transaction("files","readwrite"); tx.objectStore("files").put(blob,key); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); })).catch(()=>{}); }
+function idbGet(key){ return idbOpen().then(db=>new Promise((res,rej)=>{ const rq=db.transaction("files").objectStore("files").get(key); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>rej(rq.error); })).catch(()=>null); }
+function idbDel(key){ return idbOpen().then(db=>new Promise((res,rej)=>{ const tx=db.transaction("files","readwrite"); tx.objectStore("files").delete(key); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); })).catch(()=>{}); }
 
-function toggleDocsList() {
-  const body = document.getElementById("docsBody");
-  const btn = document.getElementById("docsToggle");
-  const open = body.classList.toggle("open");
-  btn.classList.toggle("open", open);
-}
-
-function renderDocs() {
-  const list = document.getElementById("docsList");
-  const label = document.getElementById("docsToggleLabel");
-  if (label) label.textContent = "View documents (" + docs.length + ")";
-  if (!docs.length) {
-    list.innerHTML = '<p class="docs-empty">No documents. Tap "Add document" to upload SWMS files.</p>';
+async function openDoc(id){
+  const d=docs.find(x=>x.id===id); if(!d) return;
+  if(d.url){ window.open(d.url,"_blank"); return; }
+  if(d.hasFile){
+    const w=window.open("","_blank");
+    const blob=await idbGet(d.id);
+    if(blob){ const u=URL.createObjectURL(blob); if(w) w.location=u; setTimeout(()=>URL.revokeObjectURL(u),120000); return; }
+    if(w) w.close();
+  }
+  if(d.text&&!/^\[SWMS:/.test(d.text)&&d.text.length>60){
+    const w=window.open("","_blank");
+    if(w){ w.document.write("<pre style='white-space:pre-wrap;font-family:system-ui;padding:20px;max-width:900px;margin:auto;'>"+d.text.replace(/&/g,"&amp;").replace(/</g,"&lt;")+"</pre>"); w.document.title=d.name; w.document.close(); }
     return;
   }
-  list.innerHTML = docs.map(d => `
-    <div class="doc-item">
-      <span class="doc-icon">📄</span>
-      <span class="doc-name" title="Tap to rename" data-docid="${d.id}" onclick="editDocName(this,'${d.id}')">${esc(d.name)}</span>
-      <button class="doc-del" onclick="removeDoc('${d.id}')" title="Remove">×</button>
-    </div>`).join("");
+  alert("The original file for this document isn't stored — it was uploaded before file storage was added, or seeded as a built-in. Re-upload it, or add it to the GitHub repository and sync.");
 }
 
+// ── GitHub SWMS repository sync ──
+function loadGhCfg(){ try{ return JSON.parse(localStorage.getItem("tphs_ghrepo_v1")||"null")||{}; }catch(e){ return {}; } }
+function saveGhCfg(c){ localStorage.setItem("tphs_ghrepo_v1",JSON.stringify(c)); }
+function fileRev(name){ const m=/rev\s*\.?\s*(\d+)/i.exec(name)||/\bR(\d+)\b/i.exec(name); return m?parseInt(m[1],10):0; }
+function parseGhRepo(v){
+  v=String(v||"").trim().replace(/^https?:\/\/(www\.)?github\.com\//i,"").replace(/\.git$/i,"").replace(/^\/+|\/+$/g,"");
+  if(!v) return null;
+  const parts=v.split("/").filter(Boolean);
+  if(parts.length<2) return null;
+  const owner=parts[0], name=parts[1];
+  let branch="", path="";
+  if(parts[2]==="tree"&&parts.length>=4){ branch=parts[3]; path=parts.slice(4).join("/"); }
+  else path=parts.slice(2).join("/");
+  return {owner,name,branch,path};
+}
+function saveGhRepo(){
+  const v=document.getElementById("ghRepoInput").value;
+  const tok=document.getElementById("ghTokenInput").value.trim();
+  const p=parseGhRepo(v);
+  if(!p){ alert("Enter the repository as owner/repo (optionally /folder), or paste its GitHub URL."); return; }
+  const cfg={...p,token:tok||null,display:String(v).trim(),last:null};
+  saveGhCfg(cfg);
+  syncGithub(true);
+}
+async function syncGithub(manual){
+  const cfg=loadGhCfg();
+  const st=document.getElementById("ghStatus");
+  const set=m=>{ if(st) st.textContent=m; };
+  if(!cfg.owner){ if(manual) alert("Set the GitHub repository first (owner/repo), then Save & sync."); return; }
+  set("Syncing…");
+  try{
+    const headers={"Accept":"application/vnd.github+json"};
+    if(cfg.token) headers["Authorization"]="Bearer "+cfg.token;
+    const url="https://api.github.com/repos/"+cfg.owner+"/"+cfg.name+"/contents/"+(cfg.path||"")+(cfg.branch?"?ref="+encodeURIComponent(cfg.branch):"");
+    const resp=await fetch(url,{headers});
+    if(!resp.ok) throw new Error(resp.status===404?"Repo or folder not found — check the path, and that the repo is public or a token is set.":(resp.status===401||resp.status===403?"Not authorised — check the access token.":"GitHub error "+resp.status));
+    const listing=await resp.json();
+    if(!Array.isArray(listing)) throw new Error("That path is a file, not a folder.");
+    const items=listing.filter(f=>f.type==="file"&&/\.(pdf|txt|text)$/i.test(f.name));
+    let added=0,updated=0;
+    const newNames=[];
+    for(const f of items){
+      let d=docs.find(x=>x.ghPath===f.path);
+      if(d&&d.ghSha===f.sha) continue;
+      let text="[SWMS: "+f.name+"]";
+      if(/\.(txt|text)$/i.test(f.name)&&f.download_url){
+        try{ const tr=await fetch(f.download_url); if(tr.ok) text=(await tr.text()).substring(0,100000); }catch(e){}
+      }
+      if(d){
+        // Same repo file, new revision — supersede in place, keep assignment.
+        d.ghSha=f.sha; d.text=text; d.size=f.size; d.added=Date.now(); d.url=f.html_url; updated++;
+      } else {
+        const pred=predictFromFilename(f.name);
+        const label=pred.name||f.name.replace(/\.(pdf|txt|text)$/i,"");
+        // A renamed revision (e.g. "... Rev 2.pdf") predicts the same label — supersede that doc.
+        const dup=docs.find(x=>x.name.toLowerCase()===label.toLowerCase());
+        if(dup){
+          // If the doc's current repo file is still in the repo too, keep whichever has the higher Rev number.
+          if(dup.ghPath&&dup.ghPath!==f.path&&items.some(x=>x.path===dup.ghPath)){
+            if(fileRev(f.name)<=fileRev(dup.ghPath.split("/").pop())) continue;
+          }
+          dup.ghPath=f.path; dup.ghSha=f.sha; dup.text=text; dup.size=f.size; dup.added=Date.now(); dup.url=f.html_url; updated++;
+        } else {
+          docs.push({id:"g"+Date.now()+Math.random().toString(36).slice(2),name:label,subbies:pred.subbie?[pred.subbie]:[],text,size:f.size,added:Date.now(),ghPath:f.path,ghSha:f.sha,url:f.html_url});
+          newNames.push(label); added++;
+        }
+      }
+    }
+    if(added||updated){ saveDocs(); renderDocs(); renderSubbies(); }
+    cfg.last=Date.now(); saveGhCfg(cfg);
+    set("Synced "+fmtDate(cfg.last)+" — "+added+" added, "+updated+" updated. "+items.length+" docs in repo.");
+    if(manual&&newNames.length) alert("New from GitHub:\n• "+newNames.join("\n• ")+"\n\nCheck their subcontractor assignments in the document list.");
+  }catch(e){
+    set("Sync failed: "+(e.message||"error"));
+    if(manual) alert("GitHub sync failed: "+(e.message||"error"));
+  }
+}
+function editDocName(el,id){
+  el.onclick=null; // suspend open-on-tap while renaming; re-render restores it
+  el.contentEditable="true"; el.focus();
+  const r=document.createRange(); r.selectNodeContents(el);
+  window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+  el.onblur=()=>{ el.contentEditable="false"; const d=docs.find(x=>x.id===id); if(d){ d.name=el.textContent.trim()||d.name; saveDocs(); renderDocs(); } };
+  el.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); el.blur(); } };
+}
+function toggleDocsList(){
+  const body=document.getElementById("docsBody"), btn=document.getElementById("docsToggle");
+  const open=body.classList.toggle("open"); btn.classList.toggle("open",open);
+}
+function renderDocs(){
+  const list=document.getElementById("docsList");
+  const label=document.getElementById("docsToggleLabel");
+  if(label) label.textContent="View documents ("+docs.length+")";
+  if(!docs.length){ list.innerHTML='<p class="docs-empty">No documents.</p>'; return; }
+  list.innerHTML=docs.map(d=>{
+    const isPRA=(d.subbies||[]).includes("__PRA__");
+    const assigned=(d.subbies||[]).filter(s=>s!=="__PRA__");
+    const sub=isPRA?"PRA — applies to all":(assigned.length?assigned.join(", "):"⚠ unassigned");
+    const openable=!!(d.url||d.hasFile||(d.text&&!/^\[SWMS:/.test(d.text)&&d.text.length>60));
+    return `<div class="doc-item" style="flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;width:100%;">
+        <span class="doc-icon" onclick="openDoc('${d.id}')" style="cursor:pointer;" title="Open document">${d.ghPath?"🔗":"📄"}</span>
+        <span class="doc-name" onclick="openDoc('${d.id}')" style="cursor:pointer;${openable?"":"opacity:.75;"}" title="${openable?"Tap to open":"Original file not stored — tap for details"}">${esc(d.name)}</span>
+        <button class="doc-del" onclick="editDocName(this.closest('.doc-item').querySelector('.doc-name'),'${d.id}')" title="Rename" style="font-size:11px;">✏</button>
+        <button class="doc-del" onclick="removeDoc('${d.id}')" title="Remove">×</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;width:100%;padding-left:21px;">
+        <span style="font-size:10px;color:${assigned.length||isPRA?'var(--text3)':'var(--danger)'};flex:1;">${esc(sub)}${d.added?' <span style="color:var(--text3);">· added '+fmtDate(d.added)+'</span>':""}</span>
+        ${isPRA?"":`<button class="doc-assign-btn" onclick="openAssignModal('${d.id}')">assign</button>`}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ── Assign modal ──
+function openAssignModal(docId){
+  _assignDocId=docId;
+  const d=docs.find(x=>x.id===docId);
+  if(!d) return;
+  document.getElementById("assignDocName").textContent=d.name;
+  const al=document.getElementById("assignList");
+  al.innerHTML=subbies.map(s=>`
+    <label class="assign-opt">
+      <input type="checkbox" value="${esc(s.name)}" ${(d.subbies||[]).includes(s.name)?"checked":""} />
+      <span>${esc(s.name)}${s.benched?' <span style="color:var(--text3);font-size:10px;">(bench)</span>':""}</span>
+    </label>`).join("");
+  document.getElementById("assignModal").style.display="flex";
+}
+function saveAssignment(){
+  const d=docs.find(x=>x.id===_assignDocId);
+  if(!d){ closeAssignModal(); return; }
+  const checked=Array.from(document.querySelectorAll("#assignList input:checked")).map(c=>c.value);
+  const keepPRA=(d.subbies||[]).includes("__PRA__")?["__PRA__"]:[];
+  d.subbies=keepPRA.concat(checked);
+  saveDocs(); renderDocs(); renderSubbies();
+  closeAssignModal();
+}
+function closeAssignModal(){ document.getElementById("assignModal").style.display="none"; _assignDocId=null; }
+
 // ── File upload ──
-// ── File upload with label prompt ──
-let _pendingFiles = []; // queue of {file, text} waiting for label
+function setupDropZone(){
+  const zone=document.getElementById("uploadZone");
+  if(!zone) return;
+  ["dragenter","dragover"].forEach(ev=>zone.addEventListener(ev,e=>{
+    e.preventDefault(); e.stopPropagation(); zone.classList.add("dragover");
+  }));
+  ["dragleave","dragend"].forEach(ev=>zone.addEventListener(ev,e=>{
+    e.preventDefault(); e.stopPropagation(); zone.classList.remove("dragover");
+  }));
+  zone.addEventListener("drop",e=>{
+    e.preventDefault(); e.stopPropagation(); zone.classList.remove("dragover");
+    if(e.dataTransfer&&e.dataTransfer.files) ingestFiles(e.dataTransfer.files);
+  });
+}
+function onFileChange(e){ ingestFiles(e.target.files); e.target.value=""; }
 
-function onFileChange(e) {
-  const files = e.target.files;
-  if (!files || !files.length) return;
-  _pendingFiles = [];
-  let processed = 0;
-  const total = Array.from(files).filter(f => f.name.match(/\.(pdf|txt|text)$/i)).length;
-  if (!total) { e.target.value = ""; return; }
-
-  Array.from(files).forEach(file => {
-    if (!file.name.match(/\.(pdf|txt|text)$/i)) return;
-    const isPdf = file.name.toLowerCase().endsWith(".pdf");
-    if (isPdf) {
-      _pendingFiles.push({ file, text: "[SWMS: " + file.name + "]" });
-      processed++;
-      if (processed === total) showNextLabelPrompt();
+// Read all valid files (PDF + TXT) into the queue, then start the prompt sequence.
+function ingestFiles(files){
+  if(!files||!files.length) return;
+  const valid=Array.from(files).filter(f=>f.name.match(/\.(pdf|txt|text)$/i));
+  if(!valid.length){ alert("Only PDF or TXT files are supported."); return; }
+  let processed=0;
+  // Preserve any files already queued; append the new batch.
+  valid.forEach(file=>{
+    const isPdf=file.name.toLowerCase().endsWith(".pdf");
+    if(isPdf){
+      _pendingFiles.push({file,text:"[SWMS: "+file.name+"]"});
+      if(++processed===valid.length) showNextLabelPrompt();
     } else {
-      const reader = new FileReader();
-      reader.onload = ev => {
-        _pendingFiles.push({ file, text: ev.target.result });
-        processed++;
-        if (processed === total) showNextLabelPrompt();
-      };
+      const reader=new FileReader();
+      reader.onload=ev=>{ _pendingFiles.push({file,text:ev.target.result}); if(++processed===valid.length) showNextLabelPrompt(); };
+      reader.onerror=()=>{ if(++processed===valid.length) showNextLabelPrompt(); };
       reader.readAsText(file);
     }
   });
-  e.target.value = "";
 }
 
-function showNextLabelPrompt() {
-  if (!_pendingFiles.length) return;
-  const { file } = _pendingFiles[0];
-  // Pre-fill with cleaned filename as starting point
-  const cleaned = file.name.replace(/\.(pdf|txt|text)$/i, "").replace(/[_\-]+/g, " ").trim();
-  document.getElementById("labelInput").value = cleaned;
-  document.getElementById("labelModal").style.display = "flex";
-  setTimeout(() => {
-    const inp = document.getElementById("labelInput");
-    inp.focus(); inp.select();
-  }, 80);
+// Predict "Name - Activity" label and best-matching subbie from the filename.
+function predictFromFilename(filename){
+  let base=filename.replace(/\.(pdf|txt|text)$/i,"");
+  base=base.replace(/\bREV?\s*\d+\b/ig,"").replace(/\bR\d+\b/ig,"")
+           .replace(/\b\d{1,2}[._\-]\d{1,2}[._\-]\d{2,4}\b/g,"")  // dates
+           .replace(/\bSWMS\b/ig,"");
+  base=base.replace(/[_]+/g," ").replace(/\s{2,}/g," ").trim();
+  let predName=base, predSubbie="";
+  // Find a subbie whose name appears at the start (or anywhere) of the filename.
+  const matches=subbieNames().map(s=>{
+    const re=new RegExp("\\b"+s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g,"\\s*")+"\\b","i");
+    return {s, idx:base.search(re), len:s.length};
+  }).filter(m=>m.idx>=0).sort((a,b)=>a.idx-b.idx || b.len-a.len);
+  if(matches.length){
+    predSubbie=matches[0].s;
+    // Activity = remainder after stripping the matched subbie name.
+    const re=new RegExp("\\b"+predSubbie.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g,"\\s*")+"\\b","i");
+    let activity=base.replace(re,"").replace(/^[\s\-–—]+|[\s\-–—]+$/g,"").trim();
+    predName=activity ? predSubbie+" - "+activity : predSubbie;
+  } else if(base.includes("-")){
+    predName=base.split("-").map(p=>p.trim()).filter(Boolean).join(" - ");
+  }
+  return {name:predName, subbie:predSubbie};
 }
 
-function confirmLabel() {
-  const label = document.getElementById("labelInput").value.trim();
-  if (!label) { document.getElementById("labelInput").focus(); return; }
-  const { file, text } = _pendingFiles.shift();
-  const newId = "u" + Date.now() + Math.random().toString(36).slice(2);
-  const entry = { id: newId, name: label, type: "uploaded", text, size: file.size };
-  const idx = docs.findIndex(d => d.name === label);
-  if (idx >= 0) docs[idx] = entry; else docs.push(entry);
-  saveDocs(); renderDocs();
-  document.getElementById("labelModal").style.display = "none";
-  // Open the dropdown so user can see the newly added doc
-  const body = document.getElementById("docsBody");
-  const btn = document.getElementById("docsToggle");
-  if (!body.classList.contains("open")) { body.classList.add("open"); btn.classList.add("open"); }
-  // Process next file if multiple selected
-  if (_pendingFiles.length) showNextLabelPrompt();
+function showNextLabelPrompt(){
+  if(!_pendingFiles.length){ document.getElementById("labelModal").style.display="none"; return; }
+  const {file}=_pendingFiles[0];
+  const pred=predictFromFilename(file.name);
+  // Fill label
+  document.getElementById("labelInput").value=pred.name;
+  // Fill trade dropdown (sorted subbies + an Unassigned option), preselecting prediction
+  const sel=document.getElementById("labelSubbieSelect");
+  sel.innerHTML='<option value="">— Unassigned —</option>'+
+    subbies.map(s=>`<option value="${esc(s.name)}" ${s.name===pred.subbie?"selected":""}>${esc(s.name)}${s.benched?" (bench)":""}</option>`).join("");
+  // Progress indicator
+  const total=_pendingFiles.length;
+  document.getElementById("labelProgress").textContent=
+    total>1 ? ("File 1 of "+total+" — "+file.name) : file.name;
+  document.getElementById("labelModal").style.display="flex";
+  setTimeout(()=>{ const i=document.getElementById("labelInput"); i.focus(); i.select(); },80);
 }
-
-function cancelLabel() {
-  _pendingFiles = [];
-  document.getElementById("labelModal").style.display = "none";
+function confirmLabel(){
+  const label=document.getElementById("labelInput").value.trim();
+  if(!label){ document.getElementById("labelInput").focus(); return; }
+  const subbie=document.getElementById("labelSubbieSelect").value;
+  const {file,text}=_pendingFiles[0];
+  const newId="u"+Date.now()+Math.random().toString(36).slice(2);
+  const entry={id:newId,name:label,subbies:subbie?[subbie]:[],text,size:file.size,added:Date.now(),hasFile:true};
+  idbPut(newId,file);
+  const idx=docs.findIndex(d=>d.name===label);
+  if(idx>=0){ idbDel(docs[idx].id); entry.subbies=entry.subbies.length?entry.subbies:(docs[idx].subbies||[]); docs[idx]=entry; } else docs.push(entry);
+  saveDocs(); renderDocs(); renderSubbies();
+  _pendingFiles.shift();
+  if(_pendingFiles.length){ showNextLabelPrompt(); }
+  else { document.getElementById("labelModal").style.display="none"; }
 }
+function cancelLabel(){ _pendingFiles=[]; document.getElementById("labelModal").style.display="none"; }
 
-// ── Trades persistence ──
-function loadTrades() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem("tphs_trades") || "[]");
-    if (parsed.length) {
-      trades = parsed.map(t => ({...t, loading:false, error:null, results:null}));
-      nextId = Math.max(...trades.map(t => t.id)) + 1;
+// ── Trades ──
+function loadTrades(){
+  try{
+    const p=JSON.parse(localStorage.getItem("tphs_trades_v2")||"[]");
+    if(p.length){
+      trades=p.map(t=>({...t,locations:Array.isArray(t.locations)?t.locations:[],loading:false,error:null,results:null}));
+      nextId=Math.max(...trades.map(t=>t.id))+1;
     }
-  } catch(e) {}
+  }catch(e){}
 }
-function saveTrades() {
-  localStorage.setItem("tphs_trades", JSON.stringify(trades.map(t => ({id:t.id, name:t.name, activities:t.activities}))));
+function saveTrades(){ localStorage.setItem("tphs_trades_v2",JSON.stringify(trades.map(t=>({id:t.id,name:t.name,activities:t.activities,locations:t.locations||[]})))); }
+function captureActivities(){ trades.forEach(t=>{ const ta=document.getElementById("act-"+t.id); if(ta) t.activities=ta.value; }); }
+function autoGrowTa(ta){ ta.style.height="auto"; ta.style.height=Math.max(80,ta.scrollHeight+2)+"px"; }
+function renderLocSummary(locations){
+  if(!locations||!locations.length) return "Select location(s)…";
+  if(locations.length===1) return locations[0];
+  if(locations.length===2) return locations.join(", ");
+  return locations.length+" locations selected";
 }
-
-function captureActivities() {
-  trades.forEach(t => { const ta = document.getElementById("act-"+t.id); if (ta) t.activities = ta.value; });
+function docsForSubbie(name){
+  return docs.filter(d=>(d.subbies||[]).includes("__PRA__")||(d.subbies||[]).includes(name));
 }
-
-function renderTrades() {
-  const list = document.getElementById("tradesList");
-  list.innerHTML = "";
-  trades.forEach(t => {
-    const card = document.createElement("div");
-    card.className = "trade-card";
-    let resultsHtml = `<p class="placeholder-txt">Controls will appear here after generation.</p>`;
-    if (t.loading) {
-      resultsHtml = `<div class="loading-row"><div class="spinner"></div>Generating hazard controls…</div>`;
-    } else if (t.results) {
-      const lines = t.results.split("\n").filter(l => l.trim().match(/^[-•–]/)).map(l => l.trim().replace(/^[-•–]\s*/,""));
-      const items = lines.length ? lines.map(l => `<li>${esc(l)}</li>`).join("") : `<li>${esc(t.results.trim())}</li>`;
-      resultsHtml = `<div class="results-box">
-        <div class="results-top">
-          <span class="results-label">Hazard controls</span>
-          <button class="btn btn-ghost btn-sm" data-copy="${t.id}">Copy</button>
-        </div>
+function renderTrades(){
+  const list=document.getElementById("tradesList");
+  list.innerHTML="";
+  if(!trades.length){
+    list.innerHTML='<p class="placeholder-txt">No subcontractors added yet. Tick one in the sidebar or use the dropdown above.</p>';
+    return;
+  }
+  trades.forEach(t=>{
+    const card=document.createElement("div");
+    card.className="trade-card";
+    const tradeDocs=docsForSubbie(t.name);
+    const praCount=tradeDocs.filter(d=>(d.subbies||[]).includes("__PRA__")).length;
+    const swmsCount=tradeDocs.length-praCount;
+    let resultsHtml=`<p class="placeholder-txt" style="margin:0;">Controls will appear here after generation.</p>`;
+    if(t.loading){
+      resultsHtml=`<div class="loading-row"><div class="spinner"></div>Generating hazard controls…</div>`;
+    } else if(t.results){
+      const lines=t.results.split("\n").filter(l=>l.trim().match(/^[-•–]/)).map(l=>l.trim().replace(/^[-•–]\s*/,""));
+      const items=lines.length?lines.map(l=>`<li>${esc(l)}</li>`).join(""):`<li>${esc(t.results.trim())}</li>`;
+      const srcNames=tradeDocs.map(d=>d.name).join(", ");
+      resultsHtml=`<div class="results-box">
         <ul class="results-list">${items}</ul>
+        <div class="results-src">Based on: ${esc(srcNames||"PRA only")}</div>
       </div>`;
     }
-    const badge = t.results && !t.loading ? `<span class="badge-ok">Generated</span>` : "";
-    const errHtml = t.error ? `<span class="error-msg">${esc(t.error)}</span>` : "";
-    const delBtn = trades.length > 1 ? `<button class="btn-del-trade" data-del="${t.id}">×</button>` : "";
-    card.innerHTML = `
+    const so=subbieByName(t.name);
+    const employer=(so&&so.htName)?so.htName:t.name;
+    const badge=t.results&&!t.loading?`<span class="badge-ok">Generated</span>`:"";
+    const errHtml=t.error?`<span class="error-msg">${esc(t.error)}</span>`:"";
+    card.innerHTML=`
       <div class="trade-head">
-        <span class="trade-label" contenteditable="false" data-editname="${t.id}" title="Tap to rename">${esc(t.name)}</span>
-        <span class="edit-hint">tap to rename</span>
-        ${delBtn}
+        <span class="trade-label">${esc(t.name)}</span>
+        <span class="trade-docs-count">${swmsCount} SWMS + PRA</span>
+        <button class="btn-del-trade" data-del="${t.id}" title="Remove from today">×</button>
       </div>
       <div class="trade-body">
-        <textarea id="act-${t.id}" placeholder="Describe this trade's activities for today…">${esc(t.activities)}</textarea>
+        <div class="ht-grid">
+          <div class="ht-box">
+            <div class="ht-box-head"><label class="field-label">Activity</label>
+              <button class="btn btn-ghost btn-sm" data-copyact="${t.id}">Copy</button></div>
+            <textarea id="act-${t.id}" placeholder="Describe this subcontractor's activities for the day…">${esc(t.activities)}</textarea>
+          </div>
+          <div class="ht-box">
+            <div class="ht-box-head"><label class="field-label">Controls</label>
+              <button class="btn btn-ghost btn-sm" data-copy="${t.id}">Copy</button></div>
+            ${resultsHtml}
+          </div>
+          <div class="ht-box">
+            <div class="ht-box-head"><label class="field-label">Zones</label>
+              <button class="btn btn-ghost btn-sm" data-copyzones="${t.id}">Copy</button></div>
+            <div class="loc-dropdown">
+              <button type="button" class="loc-toggle" data-loctoggle="${t.id}">
+                <span class="loc-summary ${(t.locations||[]).length?"":"empty"}">${esc(renderLocSummary(t.locations))}</span>
+                <span class="loc-arrow">▼</span>
+              </button>
+              <div class="loc-options" id="locopts-${t.id}">
+                ${siteLocations.map(loc=>`<label class="loc-opt"><input type="checkbox" data-loccheck="${t.id}" value="${esc(loc)}" ${(t.locations||[]).includes(loc)?"checked":""} /><span>${esc(loc)}</span></label>`).join("")}
+              </div>
+            </div>
+          </div>
+          <div class="ht-box">
+            <div class="ht-box-head"><label class="field-label">Employer responsible</label>
+              <button class="btn btn-ghost btn-sm" data-copyemp="${t.id}">Copy</button></div>
+            <select class="emp-select" data-empsel="${t.id}" title="Change to reassign this card to another subcontractor">
+              ${subbies.map(s=>`<option value="${esc(s.name)}" ${s.name===t.name?"selected":""}>${esc(s.name)}${s.benched?" (bench)":""}</option>`).join("")}
+            </select>
+            ${(so&&so.htName&&so.htName!==t.name)?`<span style="font-size:10px;color:var(--text3);">Copies as: ${esc(so.htName)}</span>`:""}
+          </div>
+        </div>
         <div class="trade-actions">
           <button class="btn btn-primary" data-gen="${t.id}" ${t.loading?"disabled":""}>Generate controls</button>
           ${badge}${errHtml}
         </div>
-        ${resultsHtml}
       </div>`;
-    card.querySelector("[data-gen]").addEventListener("click", () => { captureActivities(); generateOne(t.id); });
-    const delEl = card.querySelector("[data-del]");
-    if (delEl) delEl.addEventListener("click", () => { captureActivities(); removeTrade(t.id); });
-    const copyEl = card.querySelector("[data-copy]");
-    if (copyEl) copyEl.addEventListener("click", ev => copyControls(t.id, ev.target));
-    card.querySelector("[data-editname]").addEventListener("click", ev => editName(ev.target, t.id));
-    list.appendChild(card);
-  });
-}
-
-function editName(el, id) {
-  el.contentEditable = "true"; el.focus();
-  const r = document.createRange(); r.selectNodeContents(el);
-  window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
-  el.onblur = () => {
-    el.contentEditable = "false";
-    const t = trades.find(x => x.id === id);
-    if (t) { t.name = el.textContent.trim() || t.name; el.textContent = t.name; saveTrades(); }
-  };
-  el.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); el.blur(); } };
-}
-
-function addTrade() {
-  captureActivities();
-  const inp = document.getElementById("newTradeName");
-  const name = inp.value.trim();
-  if (!name) { inp.focus(); return; }
-  trades.push({id:nextId++, name, activities:"", results:null, loading:false, error:null});
-  inp.value = "";
-  saveTrades(); renderTrades();
-  setTimeout(() => { const c = document.querySelectorAll(".trade-card"); if (c.length) c[c.length-1].scrollIntoView({behavior:"smooth",block:"start"}); }, 60);
-}
-
-function removeTrade(id) { trades = trades.filter(t => t.id !== id); saveTrades(); renderTrades(); }
-
-function clearAll() { captureActivities(); trades.forEach(t => { t.results = null; t.error = null; }); renderTrades(); }
-
-// ── Generate ──
-function buildSystemPrompt(tradeName) {
-  // Always include PRA. Also include any doc whose name loosely matches the trade name.
-  const tradeWords = (tradeName || "").toLowerCase().split(/[\s\/&,]+/).filter(w => w.length > 2);
-  const relevant = docs.filter(d => {
-    if (d.name.toLowerCase().includes("risk assessment") || d.name.toLowerCase().includes("pra")) return true;
-    const docLower = d.name.toLowerCase();
-    return tradeWords.some(w => docLower.includes(w));
-  });
-  // Fall back to all docs if nothing matched beyond PRA
-  const activeDocs = relevant.length > 0 ? relevant : docs;
-  const docList = activeDocs.map(d => "- " + d.name).join("\n");
-  const uploadedContent = activeDocs.filter(d => d.text.length > 60);
-  const extra = uploadedContent.length
-    ? "\n\nUPLOADED DOCUMENT CONTENT (use only these for controls):\n" + uploadedContent.map(d => "--- " + d.name + " ---\n" + d.text.substring(0, 3000)).join("\n\n")
-    : "";
-  const docNote = "\n\nREFERENCE DOCUMENTS FOR THIS TRADE (use ONLY these — do not draw controls from other subcontractors' SWMS):\n" + docList + extra;
-  return BASE_PROMPT + docNote;
-}
-
-async function generateOne(id) {
-  const apiKey = (localStorage.getItem("tphs_apikey") || "").trim();
-  if (!apiKey) { document.getElementById("warnBanner").classList.add("show"); return; }
-  document.getElementById("warnBanner").classList.remove("show");
-  const t = trades.find(x => x.id === id);
-  if (!t) return;
-  const activities = t.activities.trim();
-  if (!activities) { t.error = "Please enter the trade activities first."; renderTrades(); return; }
-  t.loading = true; t.error = null; t.results = null;
-  saveTrades(); renderTrades();
-  const date = document.getElementById("siteDate").value;
-  try {
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1024,
-        system: buildSystemPrompt(t.name),
-        messages: [{role:"user", content:"Site date: "+date+"\nTrade: "+t.name+"\nActivities today: "+activities+"\n\nGenerate the hazard controls."}]
-      })
+    card.querySelector("[data-gen]").addEventListener("click",()=>{ captureActivities(); generateOne(t.id); });
+    card.querySelector("[data-del]").addEventListener("click",()=>{ captureActivities(); removeTradeFromToday(t.id); });
+    card.querySelector("[data-copy]").addEventListener("click",ev=>copyControls(t.id,ev.target));
+    card.querySelector("[data-copyact]").addEventListener("click",ev=>{
+      const ta=document.getElementById("act-"+t.id);
+      copyText(ta?ta.value.trim():"",ev.target);
     });
-    if (!resp.ok) { const err = await resp.json().catch(()=>({})); throw new Error(err?.error?.message || "API error "+resp.status); }
-    const data = await resp.json();
-    const text = (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
-    if (!text) throw new Error("Empty response from API");
-    t.results = text;
-  } catch(e) {
-    if (e.message && e.message.toLowerCase().includes("fetch")) {
-      t.error = "Network error — check your API key is correct and try again. (" + e.message + ")";
-    } else {
-      t.error = e.message || "Error — please try again.";
-    }
-  }
-  t.loading = false; renderTrades();
-}
-
-async function generateAll() {
-  const apiKey = (localStorage.getItem("tphs_apikey") || "").trim();
-  if (!apiKey) { document.getElementById("warnBanner").classList.add("show"); return; }
-  captureActivities();
-  const btn = document.getElementById("btnAll");
-  btn.disabled = true;
-  for (const t of trades) { if (t.activities.trim()) await generateOne(t.id); }
-  btn.disabled = false;
-}
-
-function copyControls(id, btn) {
-  const t = trades.find(x => x.id === id);
-  if (!t?.results) return;
-  const lines = t.results.split("\n").filter(l=>l.trim().match(/^[-•–]/)).map(l=>"- "+l.trim().replace(/^[-•–]\s*/,"")).join("\n");
-  navigator.clipboard.writeText(t.name+" — Hazard Controls ("+document.getElementById("siteDate").value+"):\n"+lines)
-    .then(()=>{ btn.textContent="Copied!"; setTimeout(()=>btn.textContent="Copy",1800); }).catch(()=>{});
-}
-
-function exportTxt() {
-  captureActivities();
-  const date = document.getElementById("siteDate").value;
-  let out = "DAILY HAZARD CONTROLS\nThe Ponds High School — Lipman #72601\nDate: "+date+"\n\n";
-  trades.forEach(t => {
-    if (!t.results) return;
-    out += t.name.toUpperCase()+"\nActivities: "+t.activities+"\n\n";
-    const lines = t.results.split("\n").filter(l=>l.trim().match(/^[-•–]/)).map(l=>"- "+l.trim().replace(/^[-•–]\s*/,""));
-    out += lines.join("\n")+"\n\n"+"─".repeat(50)+"\n\n";
+    card.querySelector("[data-copyzones]").addEventListener("click",ev=>copyText((t.locations||[]).join(", "),ev.target));
+    card.querySelector("[data-copyemp]").addEventListener("click",ev=>{
+      const cur=subbieByName(t.name);
+      copyText((cur&&cur.htName)?cur.htName:t.name,ev.target);
+    });
+    const empSel=card.querySelector("[data-empsel]");
+    if(empSel) empSel.addEventListener("change",()=>reassignTrade(t.id,empSel.value));
+    const lt=card.querySelector("[data-loctoggle]");
+    if(lt) lt.addEventListener("click",()=>{
+      const o=card.querySelector("#locopts-"+t.id);
+      const open=o.classList.toggle("open"); lt.classList.toggle("open",open);
+    });
+    card.querySelectorAll("[data-loccheck]").forEach(cb=>{
+      cb.addEventListener("change",()=>{
+        t.locations=t.locations||[];
+        if(cb.checked&&!t.locations.includes(cb.value)) t.locations.push(cb.value);
+        else if(!cb.checked) t.locations=t.locations.filter(l=>l!==cb.value);
+        saveTrades();
+        const sum=card.querySelector(".loc-summary");
+        sum.textContent=renderLocSummary(t.locations);
+        sum.classList.toggle("empty",!t.locations.length);
+      });
+    });
+    list.appendChild(card);
+    // Auto-grow the Activity box to fit its content (scrollHeight is only valid once in the DOM)
+    const ata=card.querySelector("#act-"+t.id);
+    if(ata){ ata.addEventListener("input",()=>autoGrowTa(ata)); autoGrowTa(ata); }
   });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([out],{type:"text/plain"}));
-  a.download = "hazard-controls-"+date+".txt";
-  a.click();
+}
+function removeTradeFromToday(id){ trades=trades.filter(t=>t.id!==id); saveTrades(); renderTrades(); renderSubbies(); renderSubbiePicker(); }
+function reassignTrade(id,newName){
+  const t=trades.find(x=>x.id===id);
+  if(!t||t.name===newName) return;
+  if(trades.some(x=>x.name===newName&&x.id!==id)){
+    alert('There is already a trade card for "'+newName+'" today. Remove one of the cards first.');
+    renderTrades(); return;
+  }
+  captureActivities();
+  const so=subbieByName(newName);
+  if(so&&so.benched) so.benched=false;
+  t.name=newName;
+  // Controls were generated against the previous subcontractor's SWMS — clear for regeneration.
+  t.results=null; t.error=null;
+  saveSubbies(); saveTrades(); renderTrades(); renderSubbies(); renderSubbiePicker(); updatePickerSummary();
+}
+function clearAll(){ captureActivities(); trades.forEach(t=>{ t.results=null; t.error=null; }); renderTrades(); }
+
+// ── Generation ──
+function buildSystemPrompt(subbieName){
+  const relevant=docsForSubbie(subbieName);
+  const docList=relevant.map(d=>"- "+d.name).join("\n")||"- (none assigned — PRA only)";
+  const content=relevant.filter(d=>d.text&&d.text.length>60);
+  const extra=content.length?"\n\nDOCUMENT CONTENT (use ONLY these):\n"+content.map(d=>"--- "+d.name+" ---\n"+d.text.substring(0,3000)).join("\n\n"):"";
+  return BASE_PROMPT+"\n\nREFERENCE DOCUMENTS FOR THIS SUBCONTRACTOR (use ONLY these — do NOT draw controls from other subcontractors' SWMS):\n"+docList+extra;
+}
+function findOverlappingTrades(cur){
+  const my=cur.locations||[];
+  if(!my.length) return [];
+  const ov=[];
+  trades.forEach(o=>{
+    if(o.id===cur.id) return;
+    if(!o.activities.trim()) return;
+    const ol=o.locations||[];
+    const sh=my.filter(l=>ol.includes(l));
+    if(sh.length) ov.push({name:o.name,locations:sh});
+  });
+  return ov;
+}
+function buildUserPrompt(t,date,activities){
+  const locs=t.locations||[];
+  const ov=findOverlappingTrades(t);
+  let p="Site date: "+date+"\nSubcontractor: "+t.name+"\nActivities today: "+activities;
+  if(locs.length) p+="\nLocation(s) of works: "+locs.join(", ");
+  if(ov.length){
+    p+="\n\nIMPORTANT — SHARED WORK ZONE: This subcontractor is working in the same location(s) as:";
+    ov.forEach(o=>{ p+="\n  • "+o.name+" (shared location: "+o.locations.join(", ")+")"; });
+    p+="\n\nYou MUST include these two controls:";
+    p+="\n  1. How THIS subcontractor will demarcate their work zone — using the method from THEIR OWN SWMS (e.g. RAZ for cranes, traffic cones/witches hats for traffic management, bollards/flagged bunting for hydraulics, folding barriers/spotter for electrical). Do NOT default to bollards and flagging unless their SWMS specifies it.";
+    p+="\n  2. Coordination of works with the overlapping subcontractor(s) confirmed at the daily 1pm site coordination meeting.";
+    p+="\nThe demarcation method MUST come from this subcontractor's own SWMS.";
+  }
+  p+="\n\nGenerate the hazard controls.";
+  return p;
+}
+async function generateOne(id){
+  const apiKey=(localStorage.getItem("tphs_apikey")||"").trim();
+  if(!apiKey){ document.getElementById("warnBanner").classList.add("show"); return; }
+  document.getElementById("warnBanner").classList.remove("show");
+  const t=trades.find(x=>x.id===id);
+  if(!t) return;
+  const activities=t.activities.trim();
+  if(!activities){ t.error="Please enter the activities first."; renderTrades(); return; }
+  t.loading=true; t.error=null; t.results=null; saveTrades(); renderTrades();
+  const date=document.getElementById("siteDate").value;
+  try{
+    const resp=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-fable-5",max_tokens:1024,output_config:{effort:"high"},system:buildSystemPrompt(t.name),messages:[{role:"user",content:buildUserPrompt(t,date,activities)}]})
+    });
+    if(!resp.ok){ const er=await resp.json().catch(()=>({})); throw new Error(er?.error?.message||"API error "+resp.status); }
+    const data=await resp.json();
+    const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+    if(!text) throw new Error("Empty response from API");
+    t.results=text;
+  }catch(e){
+    t.error=(e.message&&e.message.toLowerCase().includes("fetch"))?"Network error — check API key. ("+e.message+")":(e.message||"Error — try again.");
+  }
+  t.loading=false; renderTrades();
+}
+async function generateAll(){
+  const apiKey=(localStorage.getItem("tphs_apikey")||"").trim();
+  if(!apiKey){ document.getElementById("warnBanner").classList.add("show"); return; }
+  captureActivities();
+  const btn=document.getElementById("btnAll"); btn.disabled=true;
+  for(const t of trades){ if(t.activities.trim()) await generateOne(t.id); }
+  btn.disabled=false;
+}
+function copyText(textToCopy,btn){
+  if(!textToCopy||!String(textToCopy).trim()){ btn.textContent="Nothing to copy"; setTimeout(()=>btn.textContent="Copy",1800); return; }
+  const showCopied=()=>{ btn.textContent="Copied!"; setTimeout(()=>btn.textContent="Copy",1800); };
+  const showFail=()=>{ btn.textContent="Copy failed"; setTimeout(()=>btn.textContent="Copy",2000); };
+  // Try modern clipboard API first
+  if(navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext){
+    navigator.clipboard.writeText(textToCopy).then(showCopied).catch(()=>{ fallbackCopy(textToCopy,showCopied,showFail); });
+  } else {
+    fallbackCopy(textToCopy,showCopied,showFail);
+  }
+}
+function copyControls(id,btn){
+  const t=trades.find(x=>x.id===id);
+  if(!t||!t.results){ copyText("",btn); return; }
+  const lines=t.results.split("\n").filter(l=>l.trim().match(/^[-•–]/)).map(l=>"- "+l.trim().replace(/^[-•–]\s*/,"")).join("\n");
+  // Header carries the subbie and the app's site date — daily evidence trail in HammerTech.
+  const dv=document.getElementById("siteDate").value;
+  const dstr=dv?fmtDate(new Date(dv+"T00:00:00")):fmtDate(Date.now());
+  copyText(t.name+" - Hazard Controls ("+dstr+"):\n"+(lines||t.results.trim()),btn);
 }
 
-// ── Export / Import settings ──
-function exportSettings() {
-  const settings = {
-    version: 1,
-    exported: new Date().toISOString(),
-    docs: docs,
-    trades: trades.map(t => ({ id: t.id, name: t.name, activities: t.activities }))
-  };
-  const blob = new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "hazard-controls-settings-" + new Date().toISOString().split("T")[0] + ".json";
-  a.click();
+function fallbackCopy(text,onOk,onFail){
+  try{
+    const ta=document.createElement("textarea");
+    ta.value=text;
+    ta.style.position="fixed";
+    ta.style.top="0";
+    ta.style.left="0";
+    ta.style.width="2em";
+    ta.style.height="2em";
+    ta.style.opacity="0";
+    ta.setAttribute("readonly","");
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0,text.length);
+    const ok=document.execCommand("copy");
+    document.body.removeChild(ta);
+    if(ok) onOk(); else onFail();
+  }catch(e){ onFail(); }
 }
-
-function importSettings() {
-  const file = document.getElementById("importInput").files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const settings = JSON.parse(ev.target.result);
-      if (!settings.version || !settings.docs) {
-        alert("Invalid settings file — please use a file exported from this app.");
-        return;
-      }
-      const docsCount = settings.docs ? settings.docs.length : 0;
-      const tradesCount = settings.trades ? settings.trades.length : 0;
-      const msg = "This will replace your current:\n• " + docsCount + " documents\n• " + tradesCount + " trades\n\nContinue?";
-      if (!confirm(msg)) { document.getElementById("importInput").value = ""; return; }
-      // Apply docs
-      if (settings.docs) { docs = settings.docs; saveDocs(); renderDocs(); }
-      // Apply trades
-      if (settings.trades && settings.trades.length) {
-        captureActivities();
-        trades = settings.trades.map(t => ({ ...t, loading: false, error: null, results: null }));
-        nextId = Math.max(...trades.map(t => t.id)) + 1;
-        saveTrades(); renderTrades();
-      }
-      // Open docs dropdown so user can see imported docs
-      const body = document.getElementById("docsBody");
-      const btn = document.getElementById("docsToggle");
-      if (!body.classList.contains("open")) { body.classList.add("open"); btn.classList.add("open"); }
-      alert("Settings imported successfully.\n• " + docsCount + " documents\n• " + tradesCount + " trades");
-    } catch(e) {
-      alert("Could not read file: " + e.message);
-    }
-    document.getElementById("importInput").value = "";
-  };
-  reader.readAsText(file);
+function exportTxt(){
+  captureActivities();
+  const date=document.getElementById("siteDate").value;
+  let out="DAILY HAZARD CONTROLS\nThe Ponds High School — Lipman #72601\nDate: "+date+"\n\n";
+  trades.forEach(t=>{
+    if(!t.results) return;
+    out+=t.name.toUpperCase()+"\nActivities: "+t.activities+"\nLocation: "+((t.locations||[]).join(", ")||"-")+"\n\n";
+    const lines=t.results.split("\n").filter(l=>l.trim().match(/^[-•–]/)).map(l=>"- "+l.trim().replace(/^[-•–]\s*/,""));
+    out+=lines.join("\n")+"\n\n"+"-".repeat(50)+"\n\n";
+  });
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([out],{type:"text/plain"}));
+  a.download="hazard-controls-"+date+".txt"; a.click();
 }
-
-function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
 // ── API key modal ──
-function updateApiKeyStatus() {
-  const k = localStorage.getItem("tphs_apikey") || "";
-  const el = document.getElementById("apiKeyStatus");
-  if (!el) return;
-  if (k) {
-    // Show first 8 chars and mask the rest
-    el.textContent = k.substring(0, 12) + "..." + k.slice(-4);
-    el.style.color = "var(--success)";
-    el.style.fontStyle = "normal";
-  } else {
-    el.textContent = "Not set";
-    el.style.color = "var(--danger)";
-    el.style.fontStyle = "italic";
-  }
+function updateApiKeyStatus(){
+  const k=localStorage.getItem("tphs_apikey")||"";
+  const el=document.getElementById("apiKeyStatus");
+  if(!el) return;
+  if(k){ el.textContent=k.substring(0,12)+"..."+k.slice(-4); el.style.color="var(--success)"; el.style.fontStyle="normal"; }
+  else { el.textContent="Not set"; el.style.color="var(--danger)"; el.style.fontStyle="italic"; }
 }
-
-function openApiModal() {
-  const k = localStorage.getItem("tphs_apikey") || "";
-  document.getElementById("apiKeyInput").value = k;
-  document.getElementById("apiModal").style.display = "flex";
-  setTimeout(() => {
-    const inp = document.getElementById("apiKeyInput");
-    inp.focus();
-    inp.setSelectionRange(inp.value.length, inp.value.length);
-  }, 80);
+function openApiModal(){
+  document.getElementById("apiKeyInput").value=localStorage.getItem("tphs_apikey")||"";
+  document.getElementById("apiModal").style.display="flex";
+  setTimeout(()=>{ const i=document.getElementById("apiKeyInput"); i.focus(); i.setSelectionRange(i.value.length,i.value.length); },80);
 }
-
-function saveApiKey() {
-  const val = document.getElementById("apiKeyInput").value.trim();
-  if (!val) { document.getElementById("apiKeyInput").focus(); return; }
-  localStorage.setItem("tphs_apikey", val);
-  updateApiKeyStatus();
-  document.getElementById("apiModal").style.display = "none";
+function saveApiKey(){
+  const v=document.getElementById("apiKeyInput").value.trim();
+  if(!v){ document.getElementById("apiKeyInput").focus(); return; }
+  localStorage.setItem("tphs_apikey",v); updateApiKeyStatus();
+  document.getElementById("apiModal").style.display="none";
   document.getElementById("warnBanner").classList.remove("show");
 }
+function closeApiModal(){ document.getElementById("apiModal").style.display="none"; }
 
-function closeApiModal() {
-  document.getElementById("apiModal").style.display = "none";
+// ── 1pm Whiteboard extraction ──
+let _wbFile=null;
+function onWbFileChange(e){
+  _wbFile=(e.target.files&&e.target.files[0])||null;
+  document.getElementById("wbFileLabel").textContent=_wbFile?("📎 "+_wbFile.name):"📎 Choose meeting draft (PDF/TXT) or photo";
+}
+function wbShowStatus(html){
+  const s=document.getElementById("wbStatus");
+  s.innerHTML=html; s.classList.add("show");
+}
+function buildDraftPrompt(){
+  return "This is the typed draft of the Lipman 1pm site coordination meeting at The Ponds High School, covering the FOLLOWING day's works. "
+  +"IMPORTANT: this document is cloned from the previous day's meeting document — ONLY the per-contractor work activities and the deliveries are updated each day. Everything else (prestart compliance tables, attendee lists, programme/lookahead, concrete pour schedules, standing notes, drone photos) may be stale carry-over: IGNORE those panels entirely. "
+  +"Extract: each contractor's planned work activities, the deliveries, the works/meeting date if the document states one, and weather if present. "
+  +"Accuracy rules: keep activity wording verbatim from the draft — do not paraphrase or tidy it. Classify tasks by the work the trade is physically doing, not its downstream purpose — 'preparing/building a piling platform', 'cut/fill', 'importing DGB/fill' are earthworks tasks, NOT piling; 'trenching for services' is excavation. If an entry looks like leftover text from the previous day, or is ambiguous, put it in 'uncertain' instead of guessing. "
+  +"Zones: from each activity's wording, extract WHERE the trade is working (building, level, gate or area). Where it clearly corresponds to an entry in the app's current zone list, use that entry exactly: "+JSON.stringify(siteLocations)+". Where the draft names a location not in that list, still return it, as a short tidy label in the form 'Building E - Level 1' (building or area first, then level if given) — the app will ask the user to confirm new zones, so do not omit or force-fit them. Only leave 'zones' empty when the activity gives no location at all. "
+  +"Return STRICT JSON only, no markdown, no code fences, exactly this shape: "
+  +'{"date":"YYYY-MM-DD","weather":"...","deliveries":"...","trades":[{"subcontractor":"name as written","tasks":["..."],"zones":["..."]}],"uncertain":["..."]}';
+}
+function buildWhiteboardPrompt(){
+  return "This is a photo of the Lipman Daily Activities Board at The Ponds High School. "
+  +"Extract ONLY the per-subcontractor daily task list (the board layout varies: it may be headed 'DAILY TASKS & ALLOCATION OF WORKZONES' or 'Contractor / Daily Task' — either way it is the panel listing each subcontractor's tasks for the day, with work zones marked on the pinned site plans in per-trade colours where present), plus the DATE, WEATHER and DELIVERIES panels. "
+  +"IGNORE the 'High Risk Works & Controls' panel and any 'Permits' or 'Resources Sign Off' panels — they are not daily task input. Ignore loose sketches and pinned drawings except where they mark a trade's work zone. "
+  +"Only extract clearly legible current writing — the board often has faded ghost text from previous days; put any faded or ambiguous entries in an 'uncertain' array instead of guessing. "
+  +"Accuracy rules: classify tasks by the work the trade is physically doing, not its downstream purpose — 'preparing/building a piling platform', 'cut/fill', 'importing DGB/fill' are earthworks tasks, NOT piling; 'trenching for services' is excavation. When unsure, keep the task text verbatim and add a note to 'uncertain' rather than reinterpreting it. "
+  +"Keep task wording verbatim from the board — do not paraphrase or tidy the supervisor's wording. "
+  +"Zones: where a written zone or plan marking clearly corresponds to an entry in the app's current zone list, use that entry exactly: "+JSON.stringify(siteLocations)+". Where the board names a location not in that list, still return it as a short tidy label in the form 'Building E - Level 1' — the app will ask the user to confirm new zones. Only leave 'zones' empty when no location is given. "
+  +"Return STRICT JSON only, no markdown, no code fences, exactly this shape: "
+  +'{"date":"YYYY-MM-DD","weather":"...","deliveries":"...","trades":[{"subcontractor":"name as written","tasks":["..."],"zones":["..."]}],"uncertain":["..."]}';
+}
+function normName(s){ return String(s).toLowerCase().replace(/[^a-z0-9]/g,""); }
+function subbieCandidates(s){
+  const c=[s.name];
+  if(s.htName&&s.htName!==s.name) c.push(s.htName);
+  (s.aliases||[]).forEach(a=>c.push(a));
+  return c;
+}
+function matchSubbie(name){
+  const n=normName(name);
+  if(!n) return null;
+  let best=null,bestScore=0;
+  for(const s of subbies){
+    for(const cand of subbieCandidates(s)){
+      const m=normName(cand);
+      // Initials of multi-word names, e.g. "Hired On Time" -> "hot"
+      const acr=cand.split(/\s+/).map(w=>normName(w).charAt(0)).join("");
+      let score=0;
+      if(m===n) score=1000;
+      else if(m.startsWith(n)||n.startsWith(m)) score=500+Math.min(m.length,n.length);
+      else if(acr.length>=3&&(n===acr||n.startsWith(acr))) score=400+acr.length;
+      else if(m.includes(n)||n.includes(m)) score=100+Math.min(m.length,n.length);
+      if(score>bestScore){ bestScore=score; best=s.name; }
+    }
+  }
+  return best;
+}
+async function extractWhiteboard(){
+  const apiKey=(localStorage.getItem("tphs_apikey")||"").trim();
+  if(!apiKey){ document.getElementById("warnBanner").classList.add("show"); wbShowStatus('<span class="wb-err">No API key set — enter it in the sidebar first.</span>'); return; }
+  if(!_wbFile){ wbShowStatus('<span class="wb-err">Choose the meeting draft (PDF/TXT) or a whiteboard photo first.</span>'); return; }
+  const btn=document.getElementById("wbExtractBtn");
+  btn.disabled=true; btn.textContent="Extracting…";
+  const isPdf=_wbFile.type==="application/pdf"||/\.pdf$/i.test(_wbFile.name);
+  const isTxt=_wbFile.type==="text/plain"||/\.txt$/i.test(_wbFile.name);
+  wbShowStatus(isPdf||isTxt?"Reading the meeting draft…":"Reading photo…");
+  try{
+    let contentBlocks;
+    if(isPdf){
+      if(_wbFile.size>30000000) throw new Error("That PDF is too large to send ("+Math.round(_wbFile.size/1e6)+"MB). Keep the draft under 30MB.");
+      const b64=await new Promise((res,rej)=>{
+        const r=new FileReader();
+        r.onload=()=>res(String(r.result).split(",")[1]);
+        r.onerror=()=>rej(new Error("Could not read the PDF file."));
+        r.readAsDataURL(_wbFile);
+      });
+      contentBlocks=[
+        {type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},
+        {type:"text",text:buildDraftPrompt()}
+      ];
+    } else if(isTxt){
+      const txt=await _wbFile.text();
+      if(!txt.trim()) throw new Error("That text file is empty.");
+      contentBlocks=[{type:"text",text:buildDraftPrompt()+"\n\nMEETING DRAFT TEXT:\n"+txt.substring(0,60000)}];
+    } else {
+      const wbImg=await new Promise((res,rej)=>{
+        const img=new Image();
+        const url=URL.createObjectURL(_wbFile);
+        img.onload=()=>{
+          URL.revokeObjectURL(url);
+          const MAX=2800;
+          const scale=Math.min(1,MAX/Math.max(img.width,img.height));
+          if(scale<1||_wbFile.size>3500000){
+            // Downscale big phone photos so the API accepts them, keeping handwriting legible.
+            const c=document.createElement("canvas");
+            c.width=Math.round(img.width*scale); c.height=Math.round(img.height*scale);
+            c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+            res({data:c.toDataURL("image/jpeg",0.85).split(",")[1],mediaType:"image/jpeg"});
+          } else {
+            const r=new FileReader();
+            r.onload=()=>res({data:String(r.result).split(",")[1],mediaType:_wbFile.type||"image/jpeg"});
+            r.onerror=()=>rej(new Error("Could not read the photo file."));
+            r.readAsDataURL(_wbFile);
+          }
+        };
+        img.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error("Could not open that file as an image.")); };
+        img.src=url;
+      });
+      contentBlocks=[
+        {type:"image",source:{type:"base64",media_type:wbImg.mediaType,data:wbImg.data}},
+        {type:"text",text:buildWhiteboardPrompt()}
+      ];
+    }
+    wbShowStatus(isPdf||isTxt?"Reading the meeting draft… this can take a little while.":"Reading the whiteboard… this can take a little while on a big photo.");
+    const resp=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-fable-5",max_tokens:4000,output_config:{effort:"high"},messages:[{role:"user",content:contentBlocks}]})
+    });
+    if(!resp.ok){ const er=await resp.json().catch(()=>({})); throw new Error(er?.error?.message||"API error "+resp.status); }
+    const data=await resp.json();
+    if(data.stop_reason==="max_tokens") throw new Error("The extraction was cut off before it finished (response hit the token limit). Try again — if it persists, the file may contain an unusually large amount of content.");
+    const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+    if(!text) throw new Error("Empty response from API");
+    let parsed;
+    try{
+      let raw=text.replace(/```json|```/g,"").trim();
+      // Tolerate any preamble/postamble: take the outermost JSON object.
+      const a=raw.indexOf("{"), z=raw.lastIndexOf("}");
+      if(a>=0&&z>a) raw=raw.slice(a,z+1);
+      parsed=JSON.parse(raw);
+    }
+    catch(e){ throw new Error("Could not parse the extraction as JSON. Reply began: \u201C"+text.slice(0,160)+"\u2026\u201D"); }
+    applyWhiteboard(parsed);
+  }catch(e){
+    const msg=(e.message&&e.message.toLowerCase().includes("fetch"))?"Network error — check connection/API key. ("+e.message+")":(e.message||"Error — try again.");
+    wbShowStatus('<span class="wb-err">'+esc(msg)+"</span>");
+  }
+  btn.disabled=false; btn.textContent="Extract";
+}
+let _wbUnmatched=[];
+let _wbPendingZones=[];
+function matchZone(label){
+  const n=normName(label); if(!n) return null;
+  for(const l of siteLocations){ if(normName(l)===n) return l; }
+  return null;
+}
+function applyWhiteboard(data){
+  captureActivities();
+  let dateNote="";
+  if(data.date&&/^\d{4}-\d{2}-\d{2}$/.test(data.date)){
+    document.getElementById("siteDate").value=data.date;
+    dateNote=esc(data.date);
+  } else { dateNote='<span class="wb-err">not read — check the date field</span>'; }
+  const matched=[],unmatched=[],fromBench=[];
+  _wbPendingZones=[];
+  (Array.isArray(data.trades)?data.trades:[]).forEach(tr=>{
+    const sub=matchSubbie(tr.subcontractor||"");
+    if(!sub){ unmatched.push(tr); return; }
+    const so=subbieByName(sub);
+    if(so&&so.benched){ so.benched=false; fromBench.push(sub); }
+    const acts=(Array.isArray(tr.tasks)?tr.tasks:[]).join("\n");
+    const zones=[];
+    (Array.isArray(tr.zones)?tr.zones:[]).forEach(zl=>{
+      const m=matchZone(zl);
+      if(m){ if(!zones.includes(m)) zones.push(m); return; }
+      const nz=normName(zl); if(!nz) return;
+      let pz=_wbPendingZones.find(p=>p.norm===nz);
+      if(!pz){ pz={label:String(zl).trim(),norm:nz,trades:[]}; _wbPendingZones.push(pz); }
+      if(!pz.trades.includes(sub)) pz.trades.push(sub);
+    });
+    let t=trades.find(x=>x.name===sub);
+    if(!t){ t={id:nextId++,name:sub,activities:"",locations:[],results:null,loading:false,error:null}; trades.push(t); }
+    t.activities=acts; t.locations=zones; t.results=null; t.error=null;
+    matched.push({sub,boardName:tr.subcontractor,tasks:(tr.tasks||[]).length,zones});
+  });
+  _wbUnmatched=unmatched;
+  // The draft is the day's roster: drop carried-over trades that aren't on it.
+  // (Only when the extraction actually read trades — a failed/empty read must not wipe the day.)
+  let removedNames=[];
+  if(matched.length||unmatched.length){
+    const keep=new Set(matched.map(m=>m.sub));
+    removedNames=trades.filter(t=>!keep.has(t.name)).map(t=>t.name);
+    trades=trades.filter(t=>keep.has(t.name));
+  }
+  saveSubbies(); saveTrades(); renderTrades(); renderSubbiePicker(); updatePickerSummary(); renderSubbies();
+  let html='<div class="wb-summary"><span class="wb-draft">DRAFT — review the trade cards below before generating</span>';
+  html+="<div><strong>"+matched.length+"</strong> trade"+(matched.length===1?"":"s")+" read from the board.</div>";
+  if(matched.length) html+="<div style='color:var(--text2);font-size:12px;margin-top:2px;'>"+matched.map(m=>esc(m.boardName)+" → "+esc(m.sub)+" ("+m.tasks+" task"+(m.tasks===1?"":"s")+(m.zones.length?", "+m.zones.map(esc).join(", "):"")+")").join("<br>")+"</div>";
+  if(fromBench.length) html+="<div style='margin-top:4px;'>Pulled off the bench: "+fromBench.map(esc).join(", ")+"</div>";
+  if(removedNames.length) html+="<div style='margin-top:4px;'>Removed (not on this draft): "+removedNames.map(esc).join(", ")+"</div>";
+  if(_wbPendingZones.length){
+    html+='<div class="wb-uncertain"><strong>New zones detected — confirm before they are added:</strong>'
+      +_wbPendingZones.map((z,i)=>`<div id="wbZn_${i}" style="margin-top:6px;">
+        "${esc(z.label)}" — ${z.trades.map(esc).join(", ")}<br>
+        <select id="wbZnSel_${i}" style="max-width:70%;font-size:12px;padding:4px;">
+          <option value="__new__">➕ Add "${esc(z.label)}" as a new zone</option>
+          ${siteLocations.map(l=>`<option value="${esc(l)}">Same as: ${esc(l)}</option>`).join("")}
+          <option value="__skip__">Ignore</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="wbConfirmZone(${i})">Confirm</button>
+      </div>`).join("")+"</div>";
+  }
+  html+="<div style='margin-top:6px;'>Date: "+dateNote+"</div>";
+  if(data.weather) html+="<div>Weather: "+esc(data.weather)+"</div>";
+  if(data.deliveries) html+="<div style='margin-top:4px;'>Deliveries (tap to select &amp; copy):</div><div class='wb-deliveries'>"+esc(data.deliveries)+"</div>";
+  if(unmatched.length){
+    const opts='<option value="">Choose subcontractor…</option>'
+      +subbies.map(s=>`<option value="${esc(s.name)}">${esc(s.name)}${s.benched?" (bench)":""}</option>`).join("")
+      +'<option value="__new__">➕ Add as new subcontractor</option>';
+    html+='<div class="wb-unmatched"><strong>UNMATCHED — assign manually:</strong>'
+      +unmatched.map((u,i)=>`<div id="wbUm_${i}" style="margin-top:6px;">
+        ${esc(u.subcontractor||"(unnamed)")}${u.tasks&&u.tasks.length?": "+u.tasks.map(esc).join("; "):""}<br>
+        <select id="wbUmSel_${i}" style="max-width:70%;font-size:12px;padding:4px;">${opts}</select>
+        <button class="btn btn-ghost btn-sm" onclick="wbAssignUnmatched(${i})">Assign</button>
+      </div>`).join("")+"</div>";
+  }
+  if(Array.isArray(data.uncertain)&&data.uncertain.length) html+='<div class="wb-uncertain"><strong>Uncertain / faded — please confirm:</strong><br>'+data.uncertain.map(esc).join("<br>")+"</div>";
+  html+="</div>";
+  wbShowStatus(html);
+}
+function wbConfirmZone(i){
+  const z=_wbPendingZones[i]; if(!z) return;
+  const sel=document.getElementById("wbZnSel_"+i);
+  const choice=sel?sel.value:"__skip__";
+  captureActivities();
+  let target=null;
+  if(choice==="__new__"){
+    if(!siteLocations.some(l=>normName(l)===z.norm)){ siteLocations.push(z.label); saveLocations(); renderLocations(); }
+    target=siteLocations.find(l=>normName(l)===z.norm)||z.label;
+  } else if(choice!=="__skip__") target=choice;
+  if(target){
+    z.trades.forEach(nm=>{
+      const t=trades.find(x=>x.name===nm);
+      if(t){ t.locations=t.locations||[]; if(!t.locations.includes(target)) t.locations.push(target); }
+    });
+    saveTrades(); renderTrades();
+  }
+  const row=document.getElementById("wbZn_"+i);
+  if(row) row.innerHTML=(choice==="__skip__")?('Ignored "'+esc(z.label)+'"'):('✓ "'+esc(z.label)+'" → <strong>'+esc(target)+"</strong>");
+}
+function wbAssignUnmatched(i){
+  const sel=document.getElementById("wbUmSel_"+i);
+  const choice=sel?sel.value:"";
+  if(!choice) return;
+  const u=_wbUnmatched[i];
+  if(!u) return;
+  captureActivities();
+  let target;
+  if(choice==="__new__"){
+    const bn=String(u.subcontractor||"").trim();
+    if(!bn) return;
+    if(!subbies.some(s=>s.name.toLowerCase()===bn.toLowerCase())) subbies.push(subbieObj(bn));
+    target=subbies.find(s=>s.name.toLowerCase()===bn.toLowerCase()).name;
+    sortSubbies();
+  } else {
+    target=choice;
+    const so=subbieByName(target);
+    if(so){
+      if(so.benched) so.benched=false;
+      // Remember the board name so it matches automatically next time.
+      const bn=String(u.subcontractor||"").trim();
+      if(bn&&normName(bn)!==normName(target)&&!(so.aliases||[]).some(a=>normName(a)===normName(bn))) so.aliases.push(bn);
+    }
+  }
+  const acts=(Array.isArray(u.tasks)?u.tasks:[]).join("\n");
+  const zones=[];
+  (Array.isArray(u.zones)?u.zones:[]).forEach(zl=>{ const m=matchZone(zl); if(m&&!zones.includes(m)) zones.push(m); });
+  let t=trades.find(x=>x.name===target);
+  if(!t){ t={id:nextId++,name:target,activities:"",locations:[],results:null,loading:false,error:null}; trades.push(t); }
+  t.activities=acts; t.locations=zones; t.results=null; t.error=null;
+  saveSubbies(); saveTrades(); renderTrades(); renderSubbies(); renderSubbiePicker(); updatePickerSummary();
+  const row=document.getElementById("wbUm_"+i);
+  if(row) row.innerHTML="✓ "+esc(u.subcontractor||"")+" assigned to <strong>"+esc(target)+"</strong>"+(choice!=="__new__"?" — will match automatically next time":"");
 }
 
-document.getElementById("newTradeName").addEventListener("keydown", e => { if (e.key==="Enter") addTrade(); });
-document.getElementById("labelInput").addEventListener("keydown", e => { if (e.key==="Enter") confirmLabel(); if (e.key==="Escape") cancelLabel(); });
-document.getElementById("apiKeyInput").addEventListener("keydown", e => { if (e.key==="Enter") saveApiKey(); if (e.key==="Escape") closeApiModal(); });
+// ── HammerTech employer import (.xlsx parsed natively — no libraries) ──
+function xlsxFindEntries(bytes){
+  const dv=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  let eocd=-1;
+  for(let i=bytes.length-22;i>=Math.max(0,bytes.length-65558);i--){
+    if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; }
+  }
+  if(eocd<0) throw new Error("Not a valid .xlsx file (no ZIP directory found).");
+  const cdOffset=dv.getUint32(eocd+16,true);
+  const entries={};
+  let p=cdOffset;
+  while(p+46<=bytes.length&&dv.getUint32(p,true)===0x02014b50){
+    const method=dv.getUint16(p+10,true);
+    const compSize=dv.getUint32(p+20,true);
+    const nameLen=dv.getUint16(p+28,true);
+    const extraLen=dv.getUint16(p+30,true);
+    const commentLen=dv.getUint16(p+32,true);
+    const localOff=dv.getUint32(p+42,true);
+    const name=new TextDecoder().decode(bytes.subarray(p+46,p+46+nameLen));
+    entries[name]={method,compSize,localOff};
+    p+=46+nameLen+extraLen+commentLen;
+  }
+  return entries;
+}
+function xlsxSliceEntry(bytes,entry){
+  const dv=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  if(dv.getUint32(entry.localOff,true)!==0x04034b50) throw new Error("Corrupt .xlsx (bad local header).");
+  const nameLen=dv.getUint16(entry.localOff+26,true);
+  const extraLen=dv.getUint16(entry.localOff+28,true);
+  const start=entry.localOff+30+nameLen+extraLen;
+  return bytes.subarray(start,start+entry.compSize);
+}
+async function xlsxReadEntry(bytes,entry){
+  const comp=xlsxSliceEntry(bytes,entry);
+  if(entry.method===0) return new TextDecoder().decode(comp);
+  if(entry.method!==8) throw new Error("Unsupported .xlsx compression.");
+  const ds=new DecompressionStream("deflate-raw");
+  const stream=new Blob([comp]).stream().pipeThrough(ds);
+  return await new Response(stream).text();
+}
+function xmlDecode(s){
+  return s.replace(/&#x([0-9a-fA-F]+);/g,(m,h)=>String.fromCodePoint(parseInt(h,16)))
+          .replace(/&#(\d+);/g,(m,d)=>String.fromCodePoint(parseInt(d,10)))
+          .replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,"&");
+}
+function xlsxParseSharedStrings(xml){
+  const out=[];
+  const sis=xml.match(/<si\b[^>]*>[\s\S]*?<\/si>/g)||[];
+  for(const si of sis){
+    let s="",m,re=/<t\b[^>]*>([\s\S]*?)<\/t>/g;
+    while((m=re.exec(si))) s+=xmlDecode(m[1]);
+    out.push(s);
+  }
+  return out;
+}
+function colToIndex(ref){
+  let n=0;
+  for(const ch of ref){ const c=ch.charCodeAt(0); if(c>=65&&c<=90) n=n*26+(c-64); else break; }
+  return n-1;
+}
+function xlsxParseRows(xml,shared){
+  const rows=[];
+  const rowRe=/<row\b[^>]*>([\s\S]*?)<\/row>/g;
+  let rm;
+  while((rm=rowRe.exec(xml))){
+    const cells={};
+    const cellRe=/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+    let cm;
+    while((cm=cellRe.exec(rm[1]))){
+      const attrs=cm[1], inner=cm[2]||"";
+      const rAttr=/r="([A-Z]+)\d+"/.exec(attrs);
+      if(!rAttr) continue;
+      const col=colToIndex(rAttr[1]);
+      const tAttr=/t="([^"]+)"/.exec(attrs);
+      const t=tAttr?tAttr[1]:"";
+      let val="";
+      if(t==="inlineStr"){
+        let m,re=/<t\b[^>]*>([\s\S]*?)<\/t>/g;
+        while((m=re.exec(inner))) val+=xmlDecode(m[1]);
+      } else {
+        const v=/<v>([\s\S]*?)<\/v>/.exec(inner);
+        if(v) val=(t==="s")?(shared[parseInt(v[1],10)]||""):xmlDecode(v[1]);
+      }
+      cells[col]=val;
+    }
+    rows.push(cells);
+  }
+  return rows;
+}
+async function parseEmployerExport(bytes){
+  const entries=xlsxFindEntries(bytes);
+  const sheetName=entries["xl/worksheets/sheet1.xml"]?"xl/worksheets/sheet1.xml":Object.keys(entries).find(k=>/^xl\/worksheets\/sheet\d+\.xml$/.test(k));
+  if(!sheetName) throw new Error("No worksheet found in the file.");
+  const shared=entries["xl/sharedStrings.xml"]?xlsxParseSharedStrings(await xlsxReadEntry(bytes,entries["xl/sharedStrings.xml"])):[];
+  const rows=xlsxParseRows(await xlsxReadEntry(bytes,entries[sheetName]),shared);
+  let headerRow=-1,nameCol=-1;
+  for(let i=0;i<Math.min(rows.length,10);i++){
+    for(const[col,val]of Object.entries(rows[i])){
+      if(String(val).trim().toLowerCase()==="name"){ headerRow=i; nameCol=parseInt(col,10); break; }
+    }
+    if(headerRow>=0) break;
+  }
+  if(headerRow<0) throw new Error('Could not find a "Name" column — is this the HammerTech employers export?');
+  const names=[];
+  for(let i=headerRow+1;i<rows.length;i++){
+    const n=String(rows[i][nameCol]||"").replace(/\s+/g," ").trim();
+    if(n&&!names.some(x=>x.toLowerCase()===n.toLowerCase())) names.push(n);
+  }
+  return names;
+}
+function commonPrefixLen(a,b){ let i=0; while(i<a.length&&i<b.length&&a[i]===b[i])i++; return i; }
+function findLikelyExisting(name){
+  const n=normName(name);
+  if(!n) return null;
+  for(const s of subbies){
+    for(const cand of subbieCandidates(s)){
+      const m=normName(cand);
+      const acr=cand.split(/\s+/).map(w=>normName(w).charAt(0)).join("");
+      if(m===n||m.startsWith(n)||n.startsWith(m)) return s;
+      if(acr.length>=3&&(n===acr||n.startsWith(acr))) return s;
+      if(m.includes(n)||n.includes(m)) return s;
+      if(commonPrefixLen(m,n)>=8) return s;
+    }
+  }
+  return null;
+}
+async function onEmpFileChange(e){
+  const file=(e.target.files&&e.target.files[0])||null;
+  e.target.value="";
+  if(!file) return;
+  try{
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    const names=await parseEmployerExport(bytes);
+    if(!names.length){ alert("No employer names found in that file."); return; }
+    showEmpReview(names);
+  }catch(err){
+    alert("Could not read that file: "+(err.message||"unknown error"));
+  }
+}
+function showEmpReview(names){
+  const items=names.map(n=>({name:n,existing:findLikelyExisting(n)}));
+  const nNew=items.filter(i=>!i.existing).length;
+  document.getElementById("empSummary").textContent=names.length+" employers in the export — "+nNew+" new, "+(names.length-nNew)+" likely already in your list (active or benched).";
+  document.getElementById("empList").innerHTML=items.map((it,i)=>`<label style="display:flex;gap:8px;align-items:flex-start;padding:5px 2px;font-size:12px;border-bottom:1px solid var(--border);cursor:pointer;">
+    <input type="checkbox" data-empidx="${i}" ${it.existing?"":"checked"} style="margin-top:2px;flex-shrink:0;">
+    <span style="min-width:0;">${esc(it.name)}${it.existing?'<br><span style="color:var(--text3);">already in list as: '+esc(it.existing.name)+(it.existing.benched?" (on the bench)":"")+"</span>":""}</span>
+  </label>`).join("");
+  document.getElementById("empModal").style.display="flex";
+  document.getElementById("empModal").dataset.names=JSON.stringify(names);
+}
+function confirmEmpImport(){
+  const names=JSON.parse(document.getElementById("empModal").dataset.names||"[]");
+  const boxes=document.querySelectorAll("#empList input[data-empidx]");
+  const picked=[],skipped=[];
+  boxes.forEach(b=>{ const nm=names[parseInt(b.dataset.empidx,10)]; if(b.checked) picked.push(nm); else skipped.push(nm); });
+  // Backfill HammerTech names onto matched existing subbies so future imports recognise them directly.
+  skipped.forEach(nm=>{ const ex=findLikelyExisting(nm); if(ex&&!ex.htName) ex.htName=nm; });
+  const toAdd=picked.filter(n=>!subbies.some(s=>s.name.toLowerCase()===n.toLowerCase()));
+  if(toAdd.length){
+    captureActivities();
+    toAdd.forEach(n=>subbies.push(subbieObj(n,n)));
+    sortSubbies();
+  }
+  saveSubbies(); renderSubbies(); renderSubbiePicker(); updatePickerSummary();
+  document.getElementById("empModal").style.display="none";
+  alert(toAdd.length+" subcontractor"+(toAdd.length===1?"":"s")+" added. Tap a name to rename it to your whiteboard shorthand — the HammerTech name is kept in the background for future imports.");
+}
+function cancelEmpImport(){ document.getElementById("empModal").style.display="none"; }
+
+// ── Export / Import ──
+function exportSettings(){
+  captureActivities();
+  const s={version:4,exported:new Date().toISOString(),subbies,locations:siteLocations,docs,trades:trades.map(t=>({id:t.id,name:t.name,activities:t.activities,locations:t.locations||[]}))};
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:"application/json"}));
+  a.download="hazard-controls-settings-"+new Date().toISOString().split("T")[0]+".json"; a.click();
+}
+function importSettings(){
+  const f=document.getElementById("importInput").files[0];
+  if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const s=JSON.parse(ev.target.result);
+      if(!s.docs){ alert("Invalid settings file."); return; }
+      const msg="This will replace:\n• "+(s.subbies?s.subbies.length:0)+" subcontractors\n• "+(s.docs?s.docs.length:0)+" documents\n• "+(s.trades?s.trades.length:0)+" trades\n\nContinue?";
+      if(!confirm(msg)){ document.getElementById("importInput").value=""; return; }
+      if(s.subbies) { subbies=normaliseSubbieList(s.subbies); sortSubbies(); saveSubbies(); }
+      if(s.locations&&Array.isArray(s.locations)&&s.locations.length){ siteLocations=s.locations; saveLocations(); }
+      if(s.docs){ docs=s.docs; saveDocs(); }
+      if(s.trades){ trades=s.trades.map(t=>({...t,locations:Array.isArray(t.locations)?t.locations:[],loading:false,error:null,results:null})); nextId=trades.length?Math.max(...trades.map(t=>t.id))+1:1; migrateTradeLocations(); saveTrades(); }
+      renderSubbies(); renderLocations(); renderDocs(); renderSubbiePicker(); renderTrades();
+      alert("Settings imported successfully.");
+    }catch(e){ alert("Could not read file: "+e.message); }
+    document.getElementById("importInput").value="";
+  };
+  r.readAsText(f);
+}
+
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 </script>
-</body>
-</html>
+
+</body></html>
