@@ -1020,7 +1020,20 @@ async function openDoc(id){
 // ── GitHub SWMS repository sync ──
 function loadGhCfg(){ try{ return JSON.parse(localStorage.getItem("tphs_ghrepo_v1")||"null")||{}; }catch(e){ return {}; } }
 function saveGhCfg(c){ localStorage.setItem("tphs_ghrepo_v1",JSON.stringify(c)); }
-function fileRev(name){ const m=/rev\s*\.?\s*(\d+)/i.exec(name)||/\bR(\d+)\b/i.exec(name); return m?parseInt(m[1],10):0; }
+function fileRev(name){
+  let m=/\brev\s*\.?\s*(\d+)(?:[-.](\d+))?/i.exec(name);
+  if(m) return parseInt(m[1],10)+(m[2]?parseInt(m[2],10)/1000:0);
+  m=/\brev\s*\.?\s*([A-Z])\b/i.exec(name);
+  if(m) return m[1].toUpperCase().charCodeAt(0)-64; // Rev A=1, Rev B=2 …
+  m=/\bR(\d+)\b/i.exec(name);
+  return m?parseInt(m[1],10):0;
+}
+function fileDate(name){ const m=/\((\d{8})\)/.exec(name); return m?m[1]:""; }
+// Later wins: compare by document date when both known, otherwise by revision.
+function swmsNewer(aDate,aRev,bDate,bRev){
+  if(aDate&&bDate&&aDate!==bDate) return aDate>bDate;
+  return aRev>bRev;
+}
 function parseGhRepo(v){
   v=String(v||"").trim().replace(/^https?:\/\/(www\.)?github\.com\//i,"").replace(/\.git$/i,"").replace(/^\/+|\/+$/g,"");
   if(!v) return null;
@@ -1055,7 +1068,28 @@ async function syncGithub(manual){
     if(!resp.ok) throw new Error(resp.status===404?"Repo or folder not found — check the path, and that the repo is public or a token is set.":(resp.status===401||resp.status===403?"Not authorised — check the access token.":"GitHub error "+resp.status));
     const listing=await resp.json();
     if(!Array.isArray(listing)) throw new Error("That path is a file, not a folder.");
-    const items=listing.filter(f=>f.type==="file"&&/\.(pdf|txt|text)$/i.test(f.name));
+    // SUPERSEDED_ prefix is the repo's own retirement convention — never ingest those.
+    const items=listing.filter(f=>f.type==="file"&&/\.(pdf|txt|text)$/i.test(f.name)&&!/^SUPERSEDED_/i.test(f.name));
+    // manifest.json in the folder carries clean metadata per file — prefer it over filename prediction.
+    let manifest={};
+    const mf=listing.find(f=>f.type==="file"&&f.name.toLowerCase()==="manifest.json");
+    if(mf&&mf.download_url){
+      try{
+        const mr=await fetch(mf.download_url);
+        if(mr.ok){ const arr=await mr.json(); if(Array.isArray(arr)) arr.forEach(e=>{ if(e&&e.file) manifest[e.file]=e; }); }
+      }catch(e){}
+    }
+    function metaFor(f){
+      const m=manifest[f.name];
+      if(!m) {
+        const pred=predictFromFilename(f.name);
+        return {label:pred.name||f.name.replace(/\.(pdf|txt|text)$/i,""),subbie:pred.subbie||"",rev:null,date:fileDate(f.name),revCmp:fileRev(f.name)};
+      }
+      const disp=matchSubbie(m.registerEmployer||m.employer||"");
+      const who=disp||m.registerEmployer||m.employer||"";
+      const act=m.activity||m.registerActivity||"";
+      return {label:act?who+" - "+act:who,subbie:disp||"",rev:(m.revision!=null?String(m.revision):null),date:String(m.date||"").replace(/-/g,""),revCmp:parseFloat(m.revision)||fileRev(f.name)};
+    }
     let added=0,updated=0;
     const newNames=[];
     for(const f of items){
@@ -1065,22 +1099,26 @@ async function syncGithub(manual){
       if(/\.(txt|text)$/i.test(f.name)&&f.download_url){
         try{ const tr=await fetch(f.download_url); if(tr.ok) text=(await tr.text()).substring(0,100000); }catch(e){}
       }
+      const meta=metaFor(f);
       if(d){
-        // Same repo file, new revision — supersede in place, keep assignment.
-        d.ghSha=f.sha; d.text=text; d.size=f.size; d.added=Date.now(); d.url=f.html_url; updated++;
+        // Same repo file, new content — supersede in place, keep assignment.
+        d.ghSha=f.sha; d.text=text; d.size=f.size; d.added=Date.now(); d.url=f.html_url; d.rev=meta.rev||d.rev; d.ghDate=meta.date||d.ghDate; updated++;
       } else {
-        const pred=predictFromFilename(f.name);
-        const label=pred.name||f.name.replace(/\.(pdf|txt|text)$/i,"");
-        // A renamed revision (e.g. "... Rev 2.pdf") predicts the same label — supersede that doc.
+        const label=meta.label;
+        // A renamed revision (e.g. "... Rev 2.pdf") carries the same label — supersede that doc.
         const dup=docs.find(x=>x.name.toLowerCase()===label.toLowerCase());
         if(dup){
-          // If the doc's current repo file is still in the repo too, keep whichever has the higher Rev number.
+          // If the doc's current repo file is still present too, keep the later document (date first, then rev).
           if(dup.ghPath&&dup.ghPath!==f.path&&items.some(x=>x.path===dup.ghPath)){
-            if(fileRev(f.name)<=fileRev(dup.ghPath.split("/").pop())) continue;
+            const old=dup.ghPath.split("/").pop();
+            const oldMeta=metaFor({name:old});
+            if(!swmsNewer(meta.date,meta.revCmp,oldMeta.date,oldMeta.revCmp)) continue;
           }
-          dup.ghPath=f.path; dup.ghSha=f.sha; dup.text=text; dup.size=f.size; dup.added=Date.now(); dup.url=f.html_url; updated++;
+          dup.ghPath=f.path; dup.ghSha=f.sha; dup.text=text; dup.size=f.size; dup.added=Date.now(); dup.url=f.html_url; dup.rev=meta.rev; dup.ghDate=meta.date;
+          if(meta.subbie&&!(dup.subbies||[]).length) dup.subbies=[meta.subbie];
+          updated++;
         } else {
-          docs.push({id:"g"+Date.now()+Math.random().toString(36).slice(2),name:label,subbies:pred.subbie?[pred.subbie]:[],text,size:f.size,added:Date.now(),ghPath:f.path,ghSha:f.sha,url:f.html_url});
+          docs.push({id:"g"+Date.now()+Math.random().toString(36).slice(2),name:label,subbies:meta.subbie?[meta.subbie]:[],text,size:f.size,added:Date.now(),ghPath:f.path,ghSha:f.sha,url:f.html_url,rev:meta.rev,ghDate:meta.date});
           newNames.push(label); added++;
         }
       }
@@ -1124,7 +1162,7 @@ function renderDocs(){
         <button class="doc-del" onclick="removeDoc('${d.id}')" title="Remove">×</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;width:100%;padding-left:21px;">
-        <span style="font-size:10px;color:${assigned.length||isPRA?'var(--text3)':'var(--danger)'};flex:1;">${esc(sub)}${d.added?' <span style="color:var(--text3);">· added '+fmtDate(d.added)+'</span>':""}</span>
+        <span style="font-size:10px;color:${assigned.length||isPRA?'var(--text3)':'var(--danger)'};flex:1;">${esc(sub)}${d.rev?' <span style="color:var(--text3);">· Rev '+esc(String(d.rev))+'</span>':""}${d.added?' <span style="color:var(--text3);">· added '+fmtDate(d.added)+'</span>':""}</span>
         ${isPRA?"":`<button class="doc-assign-btn" onclick="openAssignModal('${d.id}')">assign</button>`}
       </div>
     </div>`;
@@ -1197,20 +1235,28 @@ function ingestFiles(files){
 // Predict "Name - Activity" label and best-matching subbie from the filename.
 function predictFromFilename(filename){
   let base=filename.replace(/\.(pdf|txt|text)$/i,"");
-  base=base.replace(/\bREV?\s*\d+\b/ig,"").replace(/\bR\d+\b/ig,"")
-           .replace(/\b\d{1,2}[._\-]\d{1,2}[._\-]\d{2,4}\b/g,"")  // dates
+  base=base.replace(/\(\d{8}\)/g,"")                              // (yyyymmdd) dates
+           .replace(/\brev\s*\.?\s*\d+(?:[-.]\d+)*\b/ig,"")       // Rev 2, Rev 3-2, Rev 1.226
+           .replace(/\brev\s*\.?\s*[A-Z]\b/ig,"")                 // Rev B
+           .replace(/\bR\d+\b/ig,"")
+           .replace(/\b\d{1,2}[._\-]\d{1,2}[._\-]\d{2,4}\b/g,"")  // dd.mm.yy dates
            .replace(/\bSWMS\b/ig,"");
-  base=base.replace(/[_]+/g," ").replace(/\s{2,}/g," ").trim();
+  base=base.replace(/[_]+/g," ").replace(/\(\s*\)/g,"").replace(/\s{2,}/g," ").replace(/[\s\-–—]+$/,"").trim();
   let predName=base, predSubbie="";
-  // Find a subbie whose name appears at the start (or anywhere) of the filename.
-  const matches=subbieNames().map(s=>{
-    const re=new RegExp("\\b"+s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g,"\\s*")+"\\b","i");
-    return {s, idx:base.search(re), len:s.length};
-  }).filter(m=>m.idx>=0).sort((a,b)=>a.idx-b.idx || b.len-a.len);
+  // Find a subbie whose display, HammerTech or alias name appears in the filename (earliest, then longest, wins).
+  const matches=[];
+  subbies.forEach(s=>{
+    subbieCandidates(s).forEach(cand=>{
+      const re=new RegExp("\\b"+cand.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g,"\\s*")+"\\b","i");
+      const idx=base.search(re);
+      if(idx>=0) matches.push({s:s.name, cand, idx, len:cand.length});
+    });
+  });
+  matches.sort((a,b)=>a.idx-b.idx || b.len-a.len);
   if(matches.length){
     predSubbie=matches[0].s;
-    // Activity = remainder after stripping the matched subbie name.
-    const re=new RegExp("\\b"+predSubbie.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g,"\\s*")+"\\b","i");
+    // Activity = remainder after stripping the matched name (as it appears in the filename).
+    const re=new RegExp("\\b"+matches[0].cand.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g,"\\s*")+"\\b","i");
     let activity=base.replace(re,"").replace(/^[\s\-–—]+|[\s\-–—]+$/g,"").trim();
     predName=activity ? predSubbie+" - "+activity : predSubbie;
   } else if(base.includes("-")){
