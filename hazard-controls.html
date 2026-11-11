@@ -1028,7 +1028,7 @@ function fileRev(name){
   m=/\bR(\d+)\b/i.exec(name);
   return m?parseInt(m[1],10):0;
 }
-function fileDate(name){ const m=/\((\d{8})\)/.exec(name); return m?m[1]:""; }
+function fileDate(name){ const m=/\((\d{8})\)/.exec(name)||/\b(20\d{6})\b/.exec(name); return m?m[1]:""; }
 // Later wins: compare by document date when both known, otherwise by revision.
 function swmsNewer(aDate,aRev,bDate,bRev){
   if(aDate&&bDate&&aDate!==bDate) return aDate>bDate;
@@ -1154,9 +1154,39 @@ async function syncGithub(manual){
         }
       }
     }
+    // Sibling PRA folder (…/PRA next to …/SWMS): keep the always-applied PRA doc on the latest revision.
+    let praNote="";
+    const praPath=(cfg.path||"").replace(/SWMS\/?$/i,"PRA");
+    if(/(^|\/)PRA$/.test(praPath)&&praPath!==cfg.path){
+      try{
+        const pr=await fetch("https://api.github.com/repos/"+cfg.owner+"/"+cfg.name+"/contents/"+praPath+(cfg.branch?"?ref="+encodeURIComponent(cfg.branch):""),{headers});
+        if(pr.ok){
+          const pl=await pr.json();
+          if(Array.isArray(pl)){
+            const praFiles=pl.filter(f=>f.type==="file"&&/\.pdf$/i.test(f.name)&&!/^SUPERSEDED_/i.test(f.name));
+            let best=null;
+            praFiles.forEach(f=>{ if(!best||swmsNewer(fileDate(f.name),fileRev(f.name),fileDate(best.name),fileRev(best.name))) best=f; });
+            if(best){
+              let pd=docs.find(x=>(x.subbies||[]).includes("__PRA__"));
+              const rv=fileRev(best.name);
+              if(pd){
+                if(pd.ghSha!==best.sha){
+                  pd.ghPath=best.path; pd.ghSha=best.sha; pd.url=best.html_url; pd.added=Date.now();
+                  if(rv) pd.rev=String(rv); pd.ghDate=fileDate(best.name);
+                  updated++; praNote=" PRA updated to "+best.name.replace(/\.pdf$/i,"")+".";
+                }
+              } else {
+                docs.push({id:"g"+Date.now()+Math.random().toString(36).slice(2),name:best.name.replace(/\.pdf$/i,""),subbies:["__PRA__"],text:"[PRA: "+best.name+"]",size:best.size,added:Date.now(),ghPath:best.path,ghSha:best.sha,url:best.html_url,rev:rv?String(rv):null,ghDate:fileDate(best.name)});
+                added++; praNote=" PRA linked: "+best.name.replace(/\.pdf$/i,"")+".";
+              }
+            }
+          }
+        }
+      }catch(e){} // PRA folder is optional — never fail the SWMS sync over it
+    }
     if(added||updated){ saveDocs(); renderDocs(); renderSubbies(); }
     cfg.last=Date.now(); saveGhCfg(cfg);
-    set("Synced "+fmtDate(cfg.last)+" — "+added+" added, "+updated+" updated. "+items.length+" docs in repo.");
+    set("Synced "+fmtDate(cfg.last)+" — "+added+" added, "+updated+" updated. "+items.length+" docs in repo."+praNote);
     if(manual&&newNames.length) alert("New from GitHub:\n• "+newNames.join("\n• ")+"\n\nCheck their subcontractor assignments in the document list.");
   }catch(e){
     set("Sync failed: "+(e.message||"error"));
