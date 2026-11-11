@@ -1114,18 +1114,24 @@ async function syncGithub(manual){
       const m=manifest[f.name];
       if(!m) {
         const pred=predictFromFilename(f.name);
-        return {label:pred.name||f.name.replace(/\.(pdf|txt|text)$/i,""),subbie:pred.subbie||"",rev:null,date:fileDate(f.name),revCmp:fileRev(f.name)};
+        return {label:pred.name||f.name.replace(/\.(pdf|txt|text)$/i,""),subbie:pred.subbie||"",rev:null,date:fileDate(f.name),revCmp:fileRev(f.name),emp:null};
       }
-      const disp=matchSubbie(m.registerEmployer||m.employer||"");
-      const who=disp||m.registerEmployer||m.employer||"";
+      const emp=m.registerEmployer||m.employer||"";
+      const disp=matchSubbie(emp);
+      const who=disp||emp;
       const act=m.activity||m.registerActivity||"";
-      return {label:act?who+" - "+act:who,subbie:disp||"",rev:(m.revision!=null?String(m.revision):null),date:String(m.date||"").replace(/-/g,""),revCmp:parseFloat(m.revision)||fileRev(f.name)};
+      return {label:act?who+" - "+act:who,subbie:disp||"",rev:(m.revision!=null?String(m.revision):null),date:String(m.date||"").replace(/-/g,""),revCmp:parseFloat(m.revision)||fileRev(f.name),emp:emp||null};
     }
-    let added=0,updated=0;
+    let added=0,updated=0,backfilled=0;
     const newNames=[];
     for(const f of items){
       let d=docs.find(x=>x.ghPath===f.path);
-      if(d&&d.ghSha===f.sha) continue;
+      if(d&&d.ghSha===f.sha){
+        // Unchanged file — just backfill the manifest employer name onto docs synced before it was stored.
+        const mm=manifest[f.name];
+        if(mm&&!d.htEmployer){ d.htEmployer=mm.registerEmployer||mm.employer||null; if(d.htEmployer) backfilled++; }
+        continue;
+      }
       let text="[SWMS: "+f.name+"]";
       if(/\.(txt|text)$/i.test(f.name)&&f.download_url){
         try{ const tr=await fetch(f.download_url); if(tr.ok) text=(await tr.text()).substring(0,100000); }catch(e){}
@@ -1133,7 +1139,7 @@ async function syncGithub(manual){
       const meta=metaFor(f);
       if(d){
         // Same repo file, new content — supersede in place, keep assignment.
-        d.ghSha=f.sha; d.text=text; d.size=f.size; d.added=Date.now(); d.url=f.html_url; d.rev=meta.rev||d.rev; d.ghDate=meta.date||d.ghDate; updated++;
+        d.ghSha=f.sha; d.text=text; d.size=f.size; d.added=Date.now(); d.url=f.html_url; d.rev=meta.rev||d.rev; d.ghDate=meta.date||d.ghDate; d.htEmployer=meta.emp||d.htEmployer; updated++;
       } else {
         const label=meta.label;
         // A renamed revision (e.g. "... Rev 2.pdf") carries the same label — supersede that doc.
@@ -1145,15 +1151,20 @@ async function syncGithub(manual){
             const oldMeta=metaFor({name:old});
             if(!swmsNewer(meta.date,meta.revCmp,oldMeta.date,oldMeta.revCmp)) continue;
           }
-          dup.ghPath=f.path; dup.ghSha=f.sha; dup.text=text; dup.size=f.size; dup.added=Date.now(); dup.url=f.html_url; dup.rev=meta.rev; dup.ghDate=meta.date;
+          dup.ghPath=f.path; dup.ghSha=f.sha; dup.text=text; dup.size=f.size; dup.added=Date.now(); dup.url=f.html_url; dup.rev=meta.rev; dup.ghDate=meta.date; dup.htEmployer=meta.emp||dup.htEmployer;
           if(meta.subbie&&!(dup.subbies||[]).length) dup.subbies=[meta.subbie];
           updated++;
         } else {
-          docs.push({id:"g"+Date.now()+Math.random().toString(36).slice(2),name:label,subbies:meta.subbie?[meta.subbie]:[],text,size:f.size,added:Date.now(),ghPath:f.path,ghSha:f.sha,url:f.html_url,rev:meta.rev,ghDate:meta.date});
+          docs.push({id:"g"+Date.now()+Math.random().toString(36).slice(2),name:label,subbies:meta.subbie?[meta.subbie]:[],text,size:f.size,added:Date.now(),ghPath:f.path,ghSha:f.sha,url:f.html_url,rev:meta.rev,ghDate:meta.date,htEmployer:meta.emp});
           newNames.push(label); added++;
         }
       }
     }
+    // Learn legal-entity ↔ app-name links from docs the user has assigned by hand,
+    // so future SWMS from that employer auto-assign.
+    let learned=0;
+    docs.forEach(doc=>{ if(learnEmployerMapping(doc)) learned++; });
+    if(learned) saveSubbies();
     // Sibling PRA folder (…/PRA next to …/SWMS): keep the always-applied PRA doc on the latest revision.
     let praNote="";
     const praPath=(cfg.path||"").replace(/SWMS\/?$/i,"PRA");
@@ -1184,7 +1195,7 @@ async function syncGithub(manual){
         }
       }catch(e){} // PRA folder is optional — never fail the SWMS sync over it
     }
-    if(added||updated){ saveDocs(); renderDocs(); renderSubbies(); }
+    if(added||updated||backfilled){ saveDocs(); renderDocs(); renderSubbies(); }
     cfg.last=Date.now(); saveGhCfg(cfg);
     set("Synced "+fmtDate(cfg.last)+" — "+added+" added, "+updated+" updated. "+items.length+" docs in repo."+praNote);
     if(manual&&newNames.length) alert("New from GitHub:\n• "+newNames.join("\n• ")+"\n\nCheck their subcontractor assignments in the document list.");
@@ -1244,12 +1255,27 @@ function openAssignModal(docId){
     </label>`).join("");
   document.getElementById("assignModal").style.display="flex";
 }
+// If a doc carries the repo's employer name and the user assigned it to exactly one subbie,
+// remember that employer name against the subbie (htName if empty, otherwise an alias).
+function learnEmployerMapping(d){
+  if(!d||!d.htEmployer) return false;
+  const assigned=(d.subbies||[]).filter(s=>s!=="__PRA__");
+  if(assigned.length!==1) return false;
+  if(matchSubbie(d.htEmployer)===assigned[0]) return false; // already resolves correctly
+  const so=subbieByName(assigned[0]);
+  if(!so) return false;
+  if(!so.htName) so.htName=d.htEmployer;
+  else if(normName(so.htName)!==normName(d.htEmployer)&&!(so.aliases||[]).some(a=>normName(a)===normName(d.htEmployer))) so.aliases.push(d.htEmployer);
+  else return false;
+  return true;
+}
 function saveAssignment(){
   const d=docs.find(x=>x.id===_assignDocId);
   if(!d){ closeAssignModal(); return; }
   const checked=Array.from(document.querySelectorAll("#assignList input:checked")).map(c=>c.value);
   const keepPRA=(d.subbies||[]).includes("__PRA__")?["__PRA__"]:[];
   d.subbies=keepPRA.concat(checked);
+  if(learnEmployerMapping(d)) saveSubbies();
   saveDocs(); renderDocs(); renderSubbies();
   closeAssignModal();
 }
