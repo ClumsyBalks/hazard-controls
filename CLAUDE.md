@@ -80,3 +80,30 @@ button; the employer dropdown reassigns a card and clears stale results.
 - Output limits for generated controls: 100 words target, 150 hard max, bullet
   list only. Copy includes a `Name - Hazard Controls (dd/mm/yyyy):` header line
   taken from the app's site date (daily evidence trail).
+
+## Combined app build (agreed 13/11/2026)
+
+End state is ONE combined app, not two integrated ones: the HCG becomes step 3
+of a three-step daily flow in a single file with tabs (1 before meeting: drone
+photo + HammerTech meetings export → 1pm board PDF; 2 after meeting: draft PDF
+→ extraction fills trade cards + per-task zone table; 3 prestart: review,
+Generate All, Daily Activities Board + A3 print pack → copy into HammerTech;
+plus a Setup tab for programme/zone map/SWMS). The meeting-boards chat builds
+it as `combined.html` in this repo on `main`, alongside the live app — same
+origin, shared localStorage. `hazard-controls.html` is untouched by that build;
+at cutover `combined.html` replaces it.
+
+Rules for maintenance work on hazard-controls.html while the build runs:
+- Always pull latest `main` before editing; NEVER edit `combined.html` from
+  maintenance chats.
+- Do not restructure the localStorage keys, the extraction JSON shape, or the
+  trade-card model without flagging it to the combined build first — it
+  depends on them.
+- Known gap owned by the combined build, not maintenance: generated controls
+  are not persisted (saved trades carry id/name/activities/locations only;
+  results reset on reload).
+- Log EVERY hazard-controls.html change made after 13/11/2026 as one line
+  below, so it can be carried into combined.html.
+
+Changes to hazard-controls.html since 13/11/2026 (carry into combined.html):
+- (none yet)
