@@ -194,6 +194,14 @@
   .need-strip li.info .mk{background:var(--border);color:var(--text2);}
   .need-strip li small{color:var(--text2);}
   .need-strip .hold{margin-top:9px;padding-top:8px;border-top:1px dashed var(--border);font-weight:600;}
+  .mb-card{padding:16px;}
+  .mb-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
+  .mb-row .field-label{margin:0;}
+  .mb-row input[type=date],.mb-row input[type=text]{padding:6px 8px;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:13px;background:var(--surface);color:var(--text);}
+  .mb-file{position:relative;flex:1;min-width:240px;}
+  .mb-file input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;}
+  .mb-status{font-size:12px;color:var(--text2);margin:4px 0 8px;}
+  .chain-status{font-size:13px;margin:10px 0;padding:10px 12px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);display:none;}
   @media print{ .step-tabs,.need-strip,.stage-tag{display:none!important;} .step-panel{display:block!important;} #step1,#stepSetup{display:none!important;} }
 </style>
 </head>
@@ -459,7 +467,26 @@
     <button type="button" class="step-tab" data-step="step3" onclick="showStep('step3')"><span class="n">3</span>Prestart</button>
     <button type="button" class="step-tab" data-step="stepSetup" onclick="showStep('stepSetup')"><span class="n">⚙</span>Setup</button>
   </div>
-  <div class="step-panel" id="step1"><div class="need-strip" id="need1"></div></div>
+  <div class="step-panel" id="step1"><div class="need-strip" id="need1"></div>
+  <div class="trade-card mb-card">
+    <div class="mb-row"><label class="field-label" for="mbDate">Meeting date</label><input type="date" id="mbDate">
+      <label class="field-label" for="mbTime" style="margin-left:14px;">Photo taken</label><input type="text" id="mbTime" placeholder="11:30" style="width:80px;"></div>
+    <div class="mb-row">
+      <div class="upload-btn-wrap mb-file"><div class="upload-btn" id="mbPhotoLabel">📷 Choose drone photo</div><input type="file" accept="image/*" onchange="onMbPhoto(this)"></div>
+      <div class="upload-btn-wrap mb-file"><div class="upload-btn" id="mbXlsxLabel">📎 Choose HammerTech meetings export (.xlsx)</div><input type="file" accept=".xlsx" onchange="onMbXlsx(this)"></div>
+    </div>
+    <div class="mb-status" id="mbXlsxStatus"></div>
+    <div id="mbAlignWrap" style="display:none;">
+      <div class="mb-status" id="mbAlignMsg" style="font-weight:600;color:var(--text);"></div>
+      <canvas id="mbAlign" onclick="mbAlignClick(event)" style="width:100%;max-width:1000px;cursor:crosshair;border:1px solid var(--border);border-radius:6px;"></canvas>
+      <div class="mb-row"><button class="btn btn-ghost btn-sm" onclick="mbRedoClicks()">Redo clicks</button><span class="mb-status">Your last two clicks are remembered, so a photo framed the same way lines up without clicking.</span></div>
+      <canvas id="mbPrev" style="display:none;width:100%;max-width:1000px;border:1px solid var(--border);border-radius:6px;"></canvas>
+    </div>
+    <div class="mb-row" style="margin-top:12px;"><button class="btn btn-primary" id="mbBuildBtn" onclick="mbBuild()">Build meeting board</button>
+      <a id="mbDownload" class="btn btn-ghost" style="display:none;text-decoration:none;"></a></div>
+    <div class="mb-status" id="mbBuildStatus"></div>
+    <canvas id="mbBoardPrev" style="display:none;width:100%;border:1px solid var(--border);border-radius:6px;margin-top:8px;"></canvas>
+  </div></div>
   <div class="step-panel" id="step2"><div class="need-strip" id="need2"></div>
   <div class="add-trade-bar">
     <div class="picker-dropdown" style="flex:1;position:relative;">
@@ -481,11 +508,12 @@
           <div class="upload-btn" id="wbFileLabel">📎 Choose meeting draft (PDF/TXT) or photo</div>
           <input type="file" id="wbFileInput" accept="image/*,.pdf,.txt">
         </div>
-        <button class="btn btn-primary" id="wbExtractBtn" onclick="extractWhiteboard()">Extract</button>
+        <button class="btn btn-primary" id="wbExtractBtn" onclick="extractWhiteboard()">Read draft and generate controls</button>
       </div>
       <div class="wb-status" id="wbStatus"></div>
     </div>
   </div>
+  <div class="chain-status" id="chainStatus"></div>
   </div>
   <div class="step-panel" id="step3"><div class="need-strip" id="need3"></div>
   <div class="trades-list" id="tradesList"></div>
@@ -498,7 +526,12 @@
     <button class="btn btn-ghost btn-sm" onclick="exportTxt()">📋 Export as text</button>
   </div>
   </div>
-  <div class="step-panel" id="stepSetup"><div class="need-strip" id="needSetup"></div></div>
+  <div class="step-panel" id="stepSetup"><div class="need-strip" id="needSetup"></div>
+  <div class="trade-card mb-card">
+    <div class="field-label">Lookahead programme</div>
+    <div class="mb-row"><div class="upload-btn-wrap mb-file"><div class="upload-btn">📎 Load programme file (.json from Claude)</div><input type="file" accept=".json,application/json" onchange="onProgramFile(this)"></div></div>
+    <div class="mb-status" id="progStatus">No programme loaded on this device.</div>
+  </div></div>
 </main>
 </div>
 
@@ -2083,6 +2116,289 @@ function importSettings(){
 
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
+// ══ Step 1: 1pm meeting board (built in the browser, no libraries) ══════════
+// Inputs: drone photo (two-click alignment), HammerTech Meetings.xlsx, lookahead programme (Setup).
+// Output: one-page PDF sized for the Bluebeam Revu viewport (2560 x 1200).
+const MB={REFW:3000,REFH:1262,
+  // alignment landmarks in reference-photo pixels: inside corners of the deck edge boards
+  L1:[190,770], L2:[2667,807],
+  STAIRS:[[0.0824,0.083,0.1272,0.1924],[0.3399,0.0875,0.3846,0.1969],[0.5576,0.0807,0.6067,0.1901],[0.8654,0.078,0.9145,0.1874]],
+  img:null, clicks:[], aligned:null, rows:null, pdfUrl:null, photoName:""};
+function mbISO(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function mbDate(iso){ const p=iso.split("-").map(Number); return new Date(p[0],p[1]-1,p[2],12); }
+function mbAdd(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+const MB_DAY=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], MB_DAYL=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
+      MB_MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], MB_MONL=["January","February","March","April","May","June","July","August","September","October","November","December"];
+function mbShort(d){ return MB_DAY[d.getDay()]+" "+String(d.getDate()).padStart(2,"0")+" "+MB_MON[d.getMonth()]; }
+function mbLong(d){ return MB_DAYL[d.getDay()]+" "+String(d.getDate()).padStart(2,"0")+" "+MB_MONL[d.getMonth()]+" "+d.getFullYear(); }
+function loadProgram(){ try{ return JSON.parse(localStorage.getItem("tphs_program_v1")||"null"); }catch(e){ return null; } }
+
+// ---- programme file (Setup tab)
+function onProgramFile(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ const st=document.getElementById("progStatus");
+    try{ const p=JSON.parse(r.result);
+      if(!p||!Array.isArray(p.buildings)||!Array.isArray(p.pours)||!p.start||!p.trades) throw new Error("This is not a lookahead programme file.");
+      p._loaded=new Date().toISOString(); p._file=f.name;
+      localStorage.setItem("tphs_program_v1",JSON.stringify(p));
+      st.textContent="Loaded: "+p.source; st.style.color="var(--success)";
+    }catch(e){ st.textContent="Could not load: "+e.message; st.style.color="#B3261E"; }
+    renderNeeds(); };
+  r.readAsText(f);
+}
+
+// ---- drone photo and two-click alignment
+function onMbPhoto(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  MB.photoName=f.name;
+  const m=/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})\d{2}/.exec(f.name);
+  const t=document.getElementById("mbTime");
+  if(m) t.value=m[4]+":"+m[5]; else if(f.lastModified){ const d=new Date(f.lastModified); t.value=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+  const img=new Image();
+  img.onload=()=>{ MB.img=img; MB.clicks=[];
+    try{ const s=JSON.parse(localStorage.getItem("tphs_align_v1")||"null"); if(s&&s.length===2) MB.clicks=s.map(p=>[p[0]*img.naturalWidth,p[1]*img.naturalHeight]); }catch(e){}
+    document.getElementById("mbAlignWrap").style.display="block"; mbDrawAlign(); mbWarp(); renderNeeds(); };
+  img.onerror=()=>{ document.getElementById("mbAlignMsg").textContent="Could not open that photo."; };
+  img.src=URL.createObjectURL(f);
+  document.getElementById("mbPhotoLabel").textContent="📷 "+f.name;
+}
+function mbDrawAlign(){
+  const c=document.getElementById("mbAlign"), img=MB.img; if(!img) return;
+  const w=Math.min(1600,img.naturalWidth); c.width=w; c.height=Math.round(w*img.naturalHeight/img.naturalWidth);
+  const x=c.getContext("2d"); x.drawImage(img,0,0,c.width,c.height);
+  const k=c.width/img.naturalWidth;
+  MB.clicks.forEach((p,i)=>{ x.beginPath(); x.arc(p[0]*k,p[1]*k,13,0,7); x.fillStyle=i?"#00B0F0":"#FF2D95"; x.fill(); x.lineWidth=3; x.strokeStyle="#fff"; x.stroke();
+    x.fillStyle="#fff"; x.font="bold 16px Helvetica,Arial,sans-serif"; x.textAlign="center"; x.fillText(String(i+1),p[0]*k,p[1]*k+6); });
+  const msg=document.getElementById("mbAlignMsg");
+  msg.textContent=MB.clicks.length===0?"Click 1: the south-west inside corner of the Building E deck (bottom-left of the photo)."
+    :MB.clicks.length===1?"Click 2: the south-east inside corner of the Building F deck (bottom-right of the photo)."
+    :"Aligned. Check the four green boxes sit on the four stair cores. If not, press Redo clicks.";
+}
+function mbAlignClick(ev){
+  if(!MB.img||MB.clicks.length>=2) return;
+  const c=document.getElementById("mbAlign"), r=c.getBoundingClientRect();
+  MB.clicks.push([(ev.clientX-r.left)/r.width*MB.img.naturalWidth,(ev.clientY-r.top)/r.height*MB.img.naturalHeight]);
+  if(MB.clicks.length===2) localStorage.setItem("tphs_align_v1",JSON.stringify(MB.clicks.map(p=>[p[0]/MB.img.naturalWidth,p[1]/MB.img.naturalHeight])));
+  mbDrawAlign(); mbWarp(); renderNeeds();
+}
+function mbRedoClicks(){ MB.clicks=[]; MB.aligned=null; mbDrawAlign(); mbWarp(); renderNeeds(); }
+function mbWarp(){
+  const prev=document.getElementById("mbPrev");
+  if(!MB.img||MB.clicks.length<2){ MB.aligned=null; prev.style.display="none"; return; }
+  const [p1,p2]=MB.clicks, q1=MB.L1, q2=MB.L2;
+  const dx=p2[0]-p1[0], dy=p2[1]-p1[1], ex=q2[0]-q1[0], ey=q2[1]-q1[1], den=dx*dx+dy*dy;
+  if(den<100){ MB.aligned=null; return; }
+  const ar=(ex*dx+ey*dy)/den, ai=(ey*dx-ex*dy)/den;         // complex a = (q2-q1)/(p2-p1)
+  const bx=q1[0]-(ar*p1[0]-ai*p1[1]), by=q1[1]-(ai*p1[0]+ar*p1[1]);
+  const OW=2600, k=OW/MB.REFW, OH=Math.round(MB.REFH*k);
+  const c=document.createElement("canvas"); c.width=OW; c.height=OH; const x=c.getContext("2d");
+  x.fillStyle="#0B1220"; x.fillRect(0,0,OW,OH); x.imageSmoothingQuality="high";
+  x.setTransform(k*ar,k*ai,-k*ai,k*ar,k*bx,k*by); x.drawImage(MB.img,0,0); x.setTransform(1,0,0,1,0,0);
+  MB.aligned=c; MB.alignInfo={scale:Math.hypot(ar,ai),rot:Math.atan2(ai,ar)*180/Math.PI};
+  prev.width=1300; prev.height=Math.round(1300*OH/OW); prev.style.display="block";
+  const px=prev.getContext("2d"); px.drawImage(c,0,0,prev.width,prev.height);
+  px.strokeStyle="#00E676"; px.lineWidth=3;
+  MB.STAIRS.forEach(r=>px.strokeRect(r[0]*prev.width,r[1]*prev.height,(r[2]-r[0])*prev.width,(r[3]-r[1])*prev.height));
+}
+
+// ---- HammerTech meetings export (Meetings.xlsx) -> prestart compliance rows
+function xlsSerialToISO(v){
+  const s=String(v).trim();
+  if(/^\d+(\.\d+)?$/.test(s)){ const d=new Date(Date.UTC(1899,11,30)+Math.floor(parseFloat(s))*86400000); return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0"); }
+  let m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s); if(m) return m[3]+"-"+m[2].padStart(2,"0")+"-"+m[1].padStart(2,"0");
+  m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s); return m?m[0]:"";
+}
+async function onMbXlsx(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  const st=document.getElementById("mbXlsxStatus");
+  try{
+    const bytes=new Uint8Array(await f.arrayBuffer());
+    const entries=xlsxFindEntries(bytes);
+    const sheet=entries["xl/worksheets/sheet1.xml"]?"xl/worksheets/sheet1.xml":Object.keys(entries).find(k=>/^xl\/worksheets\/sheet\d+\.xml$/.test(k));
+    if(!sheet) throw new Error("No worksheet found in the file.");
+    const shared=entries["xl/sharedStrings.xml"]?xlsxParseSharedStrings(await xlsxReadEntry(bytes,entries["xl/sharedStrings.xml"])):[];
+    const rows=xlsxParseRows(await xlsxReadEntry(bytes,entries[sheet]),shared);
+    let hr=-1, col={};
+    for(let i=0;i<Math.min(rows.length,10)&&hr<0;i++){
+      const c={}; for(const [k,v] of Object.entries(rows[i])) c[String(v).trim().toLowerCase()]=k;
+      if(c["meeting time"]!==undefined&&c["employer"]!==undefined&&c["status"]!==undefined){ hr=i; col=c; }
+    }
+    if(hr<0) throw new Error("Could not find the Meeting Time, Employer and Status columns. Is this the HammerTech Meetings export?");
+    MB.all=rows.slice(hr+1).map(r=>({date:xlsSerialToISO(r[col["meeting time"]]||""),employer:String(r[col["employer"]]||"").trim(),title:String(r[col["title"]]||"").trim(),attendees:String(r[col["attendees"]]??"").trim(),status:String(r[col["status"]]||"").trim()}));
+    MB.xlsxName=f.name; document.getElementById("mbXlsxLabel").textContent="📎 "+f.name;
+    mbFilterRows();
+  }catch(e){ MB.all=null; MB.rows=null; st.textContent="Could not read the file: "+e.message; st.style.color="#B3261E"; }
+  renderNeeds();
+}
+function mbFilterRows(){
+  const st=document.getElementById("mbXlsxStatus"); if(!MB.all){ return; }
+  const d=document.getElementById("mbDate").value;
+  // prestart meetings for the day only; the 1pm meeting draft (no "Prestart" in its title) is left out
+  MB.rows=MB.all.filter(r=>r.date===d&&/pres\w*rt/i.test(r.title)).map(r=>[r.employer||"LIPMAN/JV",r.title.replace(/pres\w*rt\b/i,"Prestart"),r.attendees||"NOT INDICATED",r.status]);
+  const done=MB.rows.filter(r=>r[3].toUpperCase()==="COMPLETE").length;
+  st.style.color=MB.rows.length?"var(--success)":"#B3261E";
+  st.textContent=MB.rows.length?(MB.rows.length+" prestart meetings found for "+fmtDMY(d)+" ("+done+" complete)."):("No prestart meetings found for "+fmtDMY(d)+". Check the meeting date, or download a fresh export.");
+}
+
+// ---- drawing helpers: reportlab-style (origin bottom-left) on a 2D canvas
+function mbG(ctx,H){
+  const F=(b,s)=>(b?"bold ":"")+s+"px Helvetica, Arial, sans-serif";
+  const g={ctx,
+    rect(x,y,w,h,fill,stroke,lw){ if(fill){ctx.fillStyle=fill;ctx.fillRect(x,H-y-h,w,h);} if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.strokeRect(x,H-y-h,w,h);} },
+    rrect(x,y,w,h,r,fill,stroke){ ctx.beginPath(); const t=H-y-h; ctx.moveTo(x+r,t); ctx.arcTo(x+w,t,x+w,t+h,r); ctx.arcTo(x+w,t+h,x,t+h,r); ctx.arcTo(x,t+h,x,t,r); ctx.arcTo(x,t,x+w,t,r); ctx.closePath(); if(fill){ctx.fillStyle=fill;ctx.fill();} if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke();} },
+    line(x1,y1,x2,y2,col,lw){ ctx.strokeStyle=col; ctx.lineWidth=lw||0.5; ctx.beginPath(); ctx.moveTo(x1,H-y1); ctx.lineTo(x2,H-y2); ctx.stroke(); },
+    tw(s,b,size){ ctx.font=F(b,size); return ctx.measureText(s).width; },
+    text(s,x,y,b,size,col,align){ ctx.font=F(b,size); ctx.fillStyle=col; ctx.textAlign=align||"left"; ctx.textBaseline="alphabetic"; ctx.fillText(s,x,H-y); },
+    fit(s,b,size,maxw){ while(size>6&&g.tw(s,b,size)>maxw) size-=0.5; return size; }
+  };
+  return g;
+}
+const MBC={BG:"#0B1220",PANEL:"#111A2B",LINE:"#2A3650",TXT:"#E8EDF5",MUTED:"#93A1B8",AMBER:"#F5A623",WKND:"#1C2740",LVL:"#3F7D4E",GRP:"#6B5D4A",SUB:"#333F55"};
+function mbPanel(g,x,y,w,h,title,note){
+  g.rrect(x,y,w,h,6,MBC.PANEL,MBC.LINE);
+  if(title){ g.text(title,x+14,y+h-30,true,22,MBC.AMBER); if(note) g.text(note,x+w-14,y+h-27,false,12,MBC.MUTED,"right"); }
+}
+function mbProgramme(g,prog,today,x,y,w,h){
+  const start=mbDate(prog.start), end=mbAdd(start,prog.days-1);
+  const days=[]; for(let i=0;i<7;i++){ const d=mbAdd(today,i); if(d<=end) days.push(d); }
+  mbPanel(g,x,y,w,h,"PROGRAMME: NEXT 7 DAYS");
+  if(!days.length){ g.text("The loaded lookahead ended "+mbShort(end)+". Load the current lookahead in Setup.",x+14,y+h-70,false,18,"#FF9F43"); return; }
+  g.text("Source: "+prog.source+"  ·  showing "+mbShort(days[0])+" to "+mbShort(days[days.length-1]),x+14,y+10,false,12,MBC.MUTED);
+  const tr=prog.trades, keys=Object.keys(tr);
+  let lx=x+w-14-keys.reduce((a,k)=>a+36+g.tw(tr[k][0],false,12),0)+13;
+  keys.forEach(k=>{ g.rect(lx,y+h-32,18,16,tr[k][1]); g.text(tr[k][0],lx+23,y+h-28,false,12,MBC.TXT); lx+=36+g.tw(tr[k][0],false,12); });
+  const nb=prog.buildings.length, gap=14, bw=(w-28-gap*(nb-1))/nb, top=y+h-46, iso=days.map(mbISO);
+  const tables=prog.buildings.map(b=>{ let rows=[],pend=[];
+    b.rows.forEach(r=>{
+      if(r[0]==="L") pend=[r];
+      else if(r[0]==="G"||r[0]==="H") pend=pend.filter(p=>p[0]==="L"||(p[0]==="G"&&r[0]==="H")).concat([r]);
+      else{ if(r[0]==="A") pend=pend.filter(p=>p[0]!=="H"); if(iso.some(d=>r[2]&&r[2][d])){ rows=rows.concat(pend,[r]); pend=[]; } }
+    }); return rows; });
+  const rh=Math.min(28,(top-(y+10)-26)/(Math.max.apply(null,tables.map(t=>t.length))+2));
+  prog.buildings.forEach((b,bi)=>{
+    const rows=tables[bi], bx=x+14+bi*(bw+gap), namew=bw*0.47, cw=(bw-namew)/days.length, ty=top-26;
+    g.text(b.name,bx,top-19,true,19,MBC.AMBER);
+    days.forEach((d,di)=>{ const cx=bx+namew+di*cw;
+      if(d.getDay()===0||d.getDay()===6) g.rect(cx,ty-rh*(rows.length+2),cw,rh*(rows.length+2),MBC.WKND);
+      const col=di===1?MBC.AMBER:MBC.TXT;
+      g.text(MB_DAY[d.getDay()].toUpperCase(),cx+cw/2,ty-rh+8,true,13,col,"center");
+      g.text(String(d.getDate()).padStart(2,"0"),cx+cw/2,ty-2*rh+7,true,17,col,"center"); });
+    if(rows.length){ g.text("TODAY",bx+namew+0.5*cw,ty+2,true,10,MBC.AMBER,"center"); if(days.length>1) g.text("TOMORROW",bx+namew+1.5*cw,ty+2,true,10,MBC.AMBER,"center"); }
+    let ry=ty-2*rh;
+    rows.forEach(r=>{ ry-=rh; const kind=r[0];
+      if(kind==="L"||kind==="G"||kind==="H"){ g.rect(bx,ry,bw,rh,{L:MBC.LVL,G:MBC.GRP,H:MBC.SUB}[kind]); g.text(r[1],bx+{L:8,G:16,H:24}[kind],ry+rh/2-5,true,g.fit(r[1],true,14,bw-30),MBC.TXT); }
+      else{ g.text(r[1],bx+(kind==="B"?38:28),ry+rh/2-5,false,g.fit(r[1],false,14.5,namew-34),MBC.TXT);
+        iso.forEach((d,di)=>{ if(r[2][d]&&tr[r[2][d]]) g.rect(bx+namew+di*cw+1,ry+1,cw-2,rh-2,tr[r[2][d]][1]); }); }
+      g.line(bx,ry,bx+bw,ry,MBC.LINE,0.5); });
+    if(days.length>1&&rows.length) g.rect(bx+namew+cw,ry,cw,ty-ry,null,MBC.AMBER,2);
+    for(let di=0;di<=days.length;di++) g.line(bx+namew+di*cw,ry,bx+namew+di*cw,ty-2*rh,MBC.LINE,0.5);
+  });
+}
+function mbPours(g,prog,today,x,y,w,h){
+  const last=mbAdd(today,14), end=mbAdd(mbDate(prog.start),prog.days-1);
+  mbPanel(g,x,y,w,h,"CONCRETE POURS: NEXT 2 WEEKS","From "+prog.source.split(" (")[0].replace("TPHS M3 ",""));
+  const all=prog.pours.map(p=>[mbDate(p.date),p]).sort((a,b)=>a[0]-b[0]);
+  const cur=all.filter(p=>p[0]>=mbDate(mbISO(today))&&p[0]<=last), nxt=all.filter(p=>p[0]>last).slice(0,3), short=end<last;
+  const top=y+h-46, foot=(nxt.length||short)?34:8, rh=Math.min(74,(top-y-foot)/Math.max(cur.length,1));
+  let ry=top;
+  cur.forEach(([d,p])=>{ ry-=rh; const n=Math.round((d-mbDate(mbISO(today)))/86400000);
+    g.rrect(x+14,ry+6,150,rh-12,5,"#FFFF00"); const ds=mbShort(d).toUpperCase();
+    g.text(ds,x+89,ry+rh/2+1,true,g.fit(ds,true,24,138),"#0B1220","center");
+    g.text(n===0?"TODAY":n===1?"TOMORROW":"in "+n+" days",x+89,ry+rh/2-15,true,12,"#0B1220","center");
+    const bl="BLDG "+p.bldg; g.text(bl,x+180,ry+rh/2+1,true,24,MBC.AMBER);
+    const lx=x+180+g.tw(bl,true,24)+16; g.text(p.label,lx,ry+rh/2+1,true,g.fit(p.label,true,24,x+w-14-lx),MBC.TXT);
+    g.text("Programme activity: "+p.activity,x+180,ry+rh/2-18,false,14,MBC.MUTED);
+    g.line(x+14,ry,x+w-14,ry,MBC.LINE,0.5); });
+  if(!cur.length) g.text("No pours programmed in this window.",x+14,top-30,false,18,MBC.MUTED);
+  if(short&&!nxt.length) g.text("Lookahead ends "+mbShort(end)+". Pours after that date are not shown.",x+14,y+12,true,13,"#FF9F43");
+  if(nxt.length){ const t="Then:  "+nxt.map(([d,p])=>mbShort(d)+" Bldg "+p.bldg+" "+p.label.split(/\s+/).join(" ")).join("   ·   "); g.text(t,x+14,y+12,false,g.fit(t,false,13,w-28),MBC.MUTED); }
+}
+function mbCompliance(g,rows,today,x,y,w,h){
+  const done=rows.filter(r=>r[3].toUpperCase()==="COMPLETE").length;
+  mbPanel(g,x,y,w,h,"PRESTART COMPLIANCE: "+mbShort(today).toUpperCase(),done+" of "+rows.length+" complete");
+  const cols=[["EMPLOYER",0.38],["TITLE",0.33],["ATTENDEES",0.14],["STATUS",0.15]], xs=[x+14];
+  cols.forEach(c=>xs.push(xs[xs.length-1]+c[1]*(w-28)));
+  const top=y+h-46, hh=24; g.rect(x+14,top-hh,w-28,hh,MBC.SUB);
+  cols.forEach((c,i)=>{ if(i<2) g.text(c[0],xs[i]+8,top-hh+7,true,12,MBC.TXT); else g.text(c[0],(xs[i]+xs[i+1])/2,top-hh+7,true,12,MBC.TXT,"center"); });
+  const rh=Math.min(54,(top-hh-y-8)/Math.max(rows.length,1)); let ry=top-hh;
+  rows.forEach(([emp,title,att,status])=>{ ry-=rh; const ok=status.toUpperCase()==="COMPLETE", mid=ry+rh/2-6;
+    g.text(emp,xs[0]+8,mid,true,g.fit(emp,true,19,xs[1]-xs[0]-14),MBC.TXT);
+    g.text(title,xs[1]+8,mid+1,false,g.fit(title,false,14.5,xs[2]-xs[1]-12),MBC.MUTED);
+    const ma=/^\s*(\d+)\s*(.*)$/.exec(att), cx=(xs[2]+xs[3])/2;
+    if(ma&&ma[2]){ g.text(ma[1],cx,mid+6,true,20,MBC.TXT,"center"); g.text(ma[2].toUpperCase(),cx,mid-9,true,10.5,"#FF9F43","center"); }
+    else g.text(att,cx,mid,true,ma?20:13,ma?MBC.TXT:"#FF6B5E","center");
+    const pw=xs[4]-xs[3]-12, ph=Math.min(30,rh-12);
+    g.rrect(xs[3]+6,ry+(rh-ph)/2,pw,ph,ph/2,ok?"#00B050":"#E8590C");
+    g.text(status.toUpperCase(),(xs[3]+xs[4])/2,ry+rh/2-5,true,13,"#FFFFFF","center");
+    g.line(x+14,ry,x+w-14,ry,MBC.LINE,0.5); });
+  if(!rows.length) g.text("No prestart meetings found for this date.",x+14,top-hh-34,false,18,MBC.MUTED);
+}
+function mbRenderBoard(S){
+  const W=2560,H=1200, today=mbDate(document.getElementById("mbDate").value), prog=loadProgram();
+  const c=document.createElement("canvas"); c.width=W*S; c.height=H*S; const ctx=c.getContext("2d"); ctx.scale(S,S);
+  const g=mbG(ctx,H); g.rect(0,0,W,H,MBC.BG);
+  const m=12,gap=10,strip=46, sh=H-2*m, ph=(sh-2*gap)/3, aspect=MB.REFW/MB.REFH, sw=strip+ph*aspect;
+  [["GROUND FLOOR","#FF9F1C"],["LEVEL 1","#2EC4B6"],["LEVEL 2","#C77DFF"]].forEach((lv,i)=>{
+    const y=m+sh-(i+1)*ph-i*gap; g.rect(m,y,strip,ph,lv[1]);
+    ctx.save(); ctx.translate(m+strip/2+11,H-(y+ph/2)); ctx.rotate(-Math.PI/2); ctx.font="bold 32px Helvetica, Arial, sans-serif"; ctx.fillStyle="#0B1220"; ctx.textAlign="center"; ctx.fillText(lv[0],0,0); ctx.restore();
+    ctx.imageSmoothingQuality="high"; ctx.drawImage(MB.aligned,m+strip,H-y-ph,sw-strip,ph);
+    g.rect(m+2,y+2,sw-4,ph-4,null,lv[1],4); });
+  const rx=m+sw+14, rw=W-rx-m, th=58;
+  g.rect(rx,H-m-th,rw,th,"#13233F"); g.rect(rx,H-m-th,rw,3,MBC.AMBER);
+  g.text("TPHS M3  1PM COORDINATION MEETING",rx+14,H-m-40,true,30,MBC.TXT);
+  const dl=mbLong(today).toUpperCase(); g.text(dl,rx+rw-14,H-m-40,true,30,MBC.AMBER,"right");
+  const tm=document.getElementById("mbTime").value; if(tm) g.text("Drone photo taken "+tm+" today",rx+rw-30-g.tw(dl,true,30),H-m-36,false,14,MBC.MUTED,"right");
+  const bot=452, py=m+bot+12, pw=rw*0.48;
+  mbProgramme(g,prog,today,rx,py,rw,H-m-th-12-py);
+  mbPours(g,prog,today,rx,m,pw,bot);
+  mbCompliance(g,MB.rows||[],today,rx+pw+12,m,rw-pw-12,bot);
+  return c;
+}
+// ---- minimal single-page PDF wrapping one JPEG (no library)
+function pdfFromJpeg(jpg,pxW,pxH,pageW,pageH,title){
+  const enc=new TextEncoder(), parts=[], offs=[]; let len=0;
+  const push=b=>{ const u=typeof b==="string"?enc.encode(b):b; parts.push(u); len+=u.length; };
+  const obj=(n,body)=>{ offs[n]=len; push(n+" 0 obj\n"+body+"\nendobj\n"); };
+  push("%PDF-1.4\n%âãÏÓ\n");
+  obj(1,"<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2,"<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+  obj(3,"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 "+pageW+" "+pageH+"] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>");
+  offs[4]=len; push("4 0 obj\n<< /Type /XObject /Subtype /Image /Width "+pxW+" /Height "+pxH+" /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length "+jpg.length+" >>\nstream\n"); push(jpg); push("\nendstream\nendobj\n");
+  const cs="q "+pageW+" 0 0 "+pageH+" 0 0 cm /Im0 Do Q";
+  obj(5,"<< /Length "+cs.length+" >>\nstream\n"+cs+"\nendstream");
+  obj(6,"<< /Title ("+String(title).replace(/[()\\]/g,"")+") /Producer (TPHS daily prestart app) >>");
+  const xref=len; let x="xref\n0 7\n0000000000 65535 f \n";
+  for(let i=1;i<=6;i++) x+=String(offs[i]).padStart(10,"0")+" 00000 n \n";
+  push(x+"trailer\n<< /Size 7 /Root 1 0 R /Info 6 0 R >>\nstartxref\n"+xref+"\n%%EOF\n");
+  return new Blob(parts,{type:"application/pdf"});
+}
+function mbMissing(){
+  const miss=[]; if(!MB.aligned) miss.push("a drone photo with both alignment clicks"); if(!MB.rows) miss.push("the HammerTech meetings export"); if(!loadProgram()) miss.push("the lookahead programme (Setup tab)"); return miss;
+}
+async function mbBuild(){
+  const st=document.getElementById("mbBuildStatus"), miss=mbMissing();
+  if(miss.length){ st.style.color="#B3261E"; st.textContent="Still needed: "+miss.join("; ")+"."; return; }
+  st.style.color="var(--text2)"; st.textContent="Building…";
+  await new Promise(r=>setTimeout(r,30));
+  try{
+    const S=2, c=mbRenderBoard(S), d=document.getElementById("mbDate").value;
+    const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",0.92));
+    const jpg=new Uint8Array(await blob.arrayBuffer());
+    const name="TPHS M3 1pm Meeting Board "+d.replace(/-/g,"")+".pdf";
+    const pdf=pdfFromJpeg(jpg,c.width,c.height,2560,1200,name.replace(".pdf",""));
+    if(MB.pdfUrl) URL.revokeObjectURL(MB.pdfUrl); MB.pdfUrl=URL.createObjectURL(pdf);
+    const a=document.getElementById("mbDownload"); a.href=MB.pdfUrl; a.download=name; a.textContent="⬇ Download "+name; a.style.display="inline-flex";
+    const pv=document.getElementById("mbBoardPrev"); pv.width=1280; pv.height=600; pv.getContext("2d").drawImage(c,0,0,1280,600); pv.style.display="block";
+    st.style.color="var(--success)"; st.textContent="Board built ("+(pdf.size/1048576).toFixed(1)+" MB). Check the preview, then download and open in Bluebeam.";
+    const day=loadDay(); day.board={at:new Date().toISOString(),date:d}; saveDay(day); renderNeeds();
+  }catch(e){ st.style.color="#B3261E"; st.textContent="Could not build the board: "+e.message; }
+}
+document.addEventListener("DOMContentLoaded",()=>{
+  const d=document.getElementById("mbDate"); if(d){ d.value=mbISO(new Date()); d.addEventListener("change",()=>{ mbFilterRows(); renderNeeds(); }); }
+  const p=loadProgram(), ps=document.getElementById("progStatus"); if(p&&ps){ ps.textContent="Loaded: "+p.source; ps.style.color="var(--success)"; }
+});
+
 // ══ Combined app shell (staging) ══════════════════════════════════════════
 // Step tabs, per-step "what's needed" strips and day state. New storage key only: tphs_day_v1.
 function loadDay(){ try{ return JSON.parse(localStorage.getItem("tphs_day_v1")||"{}"); }catch(e){ return {}; } }
@@ -2104,18 +2420,23 @@ function renderNeeds(){
   const withAct=trades.filter(t=>(t.activities||"").trim()).length, gen=trades.filter(t=>t.results).length;
   const dv=(document.getElementById("siteDate")||{}).value;
   const e1=document.getElementById("need1"); if(!e1) return;
+  const prog=loadProgram(), md=(document.getElementById("mbDate")||{}).value||"";
+  let pOk=false, pMsg="Lookahead programme not loaded on this device. Load it in the Setup tab.";
+  if(prog){ const e=mbISO(mbAdd(mbDate(prog.start),prog.days-1)); pOk=md>=prog.start&&md<=e; pMsg=pOk?("Programme: "+escH(prog.source)+" <small>(covers to "+fmtDMY(e)+")</small>"):("Loaded programme covers "+fmtDMY(prog.start)+" to "+fmtDMY(e)+", which does not include the meeting date. Load the current one in Setup."); }
+  const bOk=day.board&&sameLocalDay(day.board.at);
   e1.innerHTML=needHtml("Step 1: before the 1pm meeting","You get: the 1pm meeting board PDF for the TV.",[
-    ["info","Drone photo from the 11:30 flight <small>(every day)</small>"],
-    ["info","HammerTech meetings export, Meetings.xlsx <small>(every day)</small>"],
-    ["info","Lookahead programme <small>(only when it is revised)</small>"],
-    ["todo","Not built into the app yet. For now, send these to Claude in the meeting boards chat."]
+    [MB.aligned?"ok":"todo", MB.aligned?("Drone photo aligned: "+escH(MB.photoName)):(MB.img?"Click the two deck corners on the photo below":"Choose the drone photo from the 11:30 flight <small>(every day)</small>")],
+    [MB.rows&&MB.rows.length?"ok":"todo", MB.rows?(MB.rows.length+" prestart meetings read for "+fmtDMY(md)):"Choose the HammerTech meetings export, Meetings.xlsx <small>(every day)</small>"],
+    [pOk?"ok":"todo", pMsg+(pOk?"":"")],
+    [bOk?"ok":"info", bOk?"Meeting board built today":"Then press Build meeting board and download the PDF"]
   ],"Hold point: run the 1pm meeting.");
   const d=day.draft, dOk=d&&sameLocalDay(d.at);
-  document.getElementById("need2").innerHTML=needHtml("Step 2: after the 1pm meeting","You get: tomorrow's roster and trade cards filled in from the meeting.",[
+  document.getElementById("need2").innerHTML=needHtml("Step 2: after the 1pm meeting","You get: tomorrow's roster, trade cards and hazard controls, straight from the meeting draft.",[
     [dOk?"ok":"todo", dOk?("Meeting draft read: "+escH(d.name||"draft")+" <small>at "+new Date(d.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})+(d.date?", for "+fmtDMY(d.date):"")+"</small>"):"Upload the meeting draft (PDF or TXT) typed in HammerTech during the meeting, then press Extract"+(d&&d.at?" <small>(last read "+new Date(d.at).toLocaleDateString()+")</small>":"")],
-    [n?"ok":"todo", n?(n+" subcontractor"+(n===1?"":"s")+" on the roster"):"No subcontractors on the roster yet"]
-  ],"Hold point: check the roster, then go to step 3 to review the cards.");
-  document.getElementById("need3").innerHTML=needHtml("Step 3: prestart","You get: hazard controls for each card, ready to copy into HammerTech.",[
+    [n?"ok":"todo", n?(n+" subcontractor"+(n===1?"":"s")+" on the roster"):"No subcontractors on the roster yet"],
+    [n&&gen===n?"ok":(gen?"todo":"info"), "Controls generated on "+gen+" of "+n+" cards"]
+  ],"Hold point: make sure the draft is right before you upload it. If something is wrong, fix the draft and upload it again; only changed cards are regenerated.");
+  document.getElementById("need3").innerHTML=needHtml("Step 3: prestart","You get: the reviewed controls to copy into HammerTech. Small fixes can be made on a card here and that card regenerated.",[
     [dv?"ok":"todo","Site date: "+fmtDMY(dv)+" <small>(this date goes into each controls header)</small>"],
     [n&&withAct===n?"ok":"todo","Activities entered on "+withAct+" of "+n+" cards"],
     [n&&gen===n?"ok":"todo","Controls generated on "+gen+" of "+n+" cards"+(gen&&gen<n?" <small>(press Generate all, or generate the remaining cards)</small>":"")],
@@ -2123,7 +2444,8 @@ function renderNeeds(){
   ],"Hold point: review each card, then copy Activity, Controls, Zones and Employer into HammerTech.");
   document.getElementById("needSetup").innerHTML=needHtml("Setup: only when something changes","Nothing here is needed day to day.",[
     ["info","Subcontractors, zones, SWMS documents and the GitHub sync are in the sidebar, as before."],
-    ["info","Lookahead programme and the photo zone map will be loaded here once steps 1 and 3 are built in."]
+    [prog?"ok":"todo", prog?("Lookahead programme loaded: "+escH(prog.source)+" <small>(reload only when it is revised)</small>"):"Lookahead programme: load the file Claude supplies. It stays on this device until replaced."],
+    ["info","The photo zone map will be loaded here once the Daily Activities Board is built in."]
   ],"");
 }
 (function(){
@@ -2131,9 +2453,33 @@ function renderNeeds(){
   renderTrades=function(){ const r=_rt.apply(this,arguments); try{ saveTrades(); renderNeeds(); }catch(e){} return r; };
   const _aw=applyWhiteboard;
   applyWhiteboard=function(data){
+    const sig=t=>(t.activities||"").trim()+"|"+(t.locations||[]).slice().sort().join(";");
+    const before={}; trades.forEach(t=>{ if(t.results) before[t.name]={sig:sig(t),results:t.results}; });
     const r=_aw.apply(this,arguments);
+    try{
+      captureActivities(); let kept=0;
+      trades.forEach(t=>{ const o=before[t.name]; if(o&&!t.results&&o.sig===sig(t)){ t.results=o.results; kept++; } });
+      if(kept) renderTrades();
+      chainAfterExtract(kept, Array.isArray(data&&data.uncertain)&&data.uncertain.length>0);
+    }catch(e){}
     try{ const f=(document.getElementById("wbFileInput").files||[])[0]; const d=loadDay(); d.draft={name:f?f.name:"meeting draft",at:new Date().toISOString(),date:(data&&data.date)||""}; saveDay(d); renderNeeds(); }catch(e){}
     return r;
+  };
+  window.chainSet=function(html,kind){ const el=document.getElementById("chainStatus"); if(!el) return; el.style.display=html?"block":"none"; el.style.borderLeft="4px solid "+(kind==="ok"?"var(--success)":kind==="warn"?"#E6A700":"#0B5E58"); el.innerHTML=html; };
+  window.genMissing=async function(){
+    if(!(localStorage.getItem("tphs_apikey")||"").trim()){ document.getElementById("warnBanner").classList.add("show"); chainSet("Set the Anthropic API key in the sidebar, then press <button class='btn btn-primary btn-sm' onclick='genMissing()'>Generate controls</button>","warn"); return; }
+    captureActivities();
+    const todo=trades.filter(t=>(t.activities||"").trim()&&!t.results);
+    for(let i=0;i<todo.length;i++){ chainSet("Generating controls: "+(i+1)+" of "+todo.length+" ("+escH(todo[i].name)+")…"); await generateOne(todo[i].id); }
+    const bad=trades.filter(t=>t.error).map(t=>escH(t.name)), empty=trades.filter(t=>!(t.activities||"").trim()).map(t=>escH(t.name));
+    if(bad.length) chainSet("Controls failed for: "+bad.join(", ")+". <button class='btn btn-primary btn-sm' onclick='genMissing()'>Try again</button>","warn");
+    else chainSet("Controls are ready on "+trades.filter(t=>t.results).length+" of "+trades.length+" cards."+(empty.length?" No activities on the draft for: "+empty.join(", ")+".":"")+" <button class='btn btn-primary btn-sm' onclick=\"showStep('step3')\">Go to step 3 to review</button>","ok");
+  };
+  window.chainAfterExtract=function(kept,uncertain){
+    const pending=document.querySelector('[id^="wbZnSel_"],[id^="wbUmSel_"]');
+    const keptMsg=kept?(kept+" unchanged card"+(kept===1?" keeps":"s keep")+" existing controls. "):"";
+    if(pending||uncertain){ chainSet(keptMsg+"The draft has items to confirm above (unmatched contractor, new zone or uncertain text). Confirm them, then press <button class='btn btn-primary btn-sm' onclick='genMissing()'>Generate controls</button>","warn"); return; }
+    chainSet(keptMsg+"Draft read cleanly. Generating controls…"); genMissing();
   };
   document.addEventListener("DOMContentLoaded",()=>{
     let s="step2"; try{ s=sessionStorage.getItem("tphs_step")||s; }catch(e){}
