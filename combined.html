@@ -201,6 +201,10 @@
   .mb-file{position:relative;flex:1;min-width:240px;}
   .mb-file input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;}
   .mb-status{font-size:12px;color:var(--text2);margin:4px 0 8px;}
+  .trade-card.needs-check{background:#FFF8E1;box-shadow:0 0 0 2px #F2C94C inset;}
+  .needs-check-note{font-size:12px;font-weight:600;color:#8A6100;padding:6px 12px 0;}
+  .wx-row{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+  .wx-row textarea{flex:1;min-width:260px;min-height:52px;font-size:12px;padding:6px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;}
   .chain-status{font-size:13px;margin:10px 0;padding:10px 12px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);display:none;}
   @media print{ .step-tabs,.need-strip,.stage-tag{display:none!important;} .step-panel{display:block!important;} #step1,#stepSetup{display:none!important;} }
 </style>
@@ -510,12 +514,19 @@
         </div>
         <button class="btn btn-primary" id="wbExtractBtn" onclick="extractWhiteboard()">Read draft and generate controls</button>
       </div>
+      <div class="wx-row">
+        <div style="min-width:210px;"><div class="field-label">Weather for the work day <small>(optional)</small></div>
+          <div class="upload-btn-wrap mb-file" style="margin-top:4px;"><div class="upload-btn" id="wxLabel">🌦 Upload forecast screenshot</div><input type="file" accept="image/*" onchange="onWxFile(this)"></div></div>
+        <textarea id="wxText" placeholder="Upload the BOM forecast screenshot, or type or paste the forecast here. Add it before reading the draft so the controls take it into account." oninput="wxSave()"></textarea>
+      </div>
+      <div class="mb-status" id="wxStatus"></div>
       <div class="wb-status" id="wbStatus"></div>
     </div>
   </div>
   <div class="chain-status" id="chainStatus"></div>
   </div>
   <div class="step-panel" id="step3"><div class="need-strip" id="need3"></div>
+  <div id="reviewTop" style="display:none;margin-bottom:12px;"></div>
   <div class="trades-list" id="tradesList"></div>
   <div class="bottom-bar">
     <button class="btn btn-primary" id="btnAll" onclick="generateAll()">⚡ Generate all</button>
@@ -1525,6 +1536,8 @@ function buildUserPrompt(t,date,activities){
     p+="\n  2. Coordination of works with the overlapping subcontractor(s) confirmed at the daily 1pm site coordination meeting.";
     p+="\nThe demarcation method MUST come from this subcontractor's own SWMS.";
   }
+  const wx=(typeof wxCurrent==="function")?wxCurrent():"";
+  if(wx) p+="\n\nWEATHER FORECAST FOR THE WORK DAY: "+wx+"\nIf this forecast creates a real risk for THIS subcontractor's activities (for example thunderstorms, lightning or strong wind for scaffold, crane, telehandler, formwork or other work at height; heavy rain for excavation or electrical work; heat for prolonged outdoor work), include ONE control stating the specific trigger to stop work or make the area safe. If the forecast is not relevant to these activities, do not mention weather. Stay within the word limit.";
   p+="\n\nGenerate the hazard controls.";
   return p;
 }
@@ -1656,6 +1669,7 @@ function buildDraftPrompt(){
   +"Extract: each contractor's planned work activities, the deliveries, the works/meeting date if the document states one, and weather if present. "
   +"Accuracy rules: keep activity wording verbatim from the draft — do not paraphrase or tidy it. Classify tasks by the work the trade is physically doing, not its downstream purpose — 'preparing/building a piling platform', 'cut/fill', 'importing DGB/fill' are earthworks tasks, NOT piling; 'trenching for services' is excavation. If an entry looks like leftover text from the previous day, or is ambiguous, put it in 'uncertain' instead of guessing. "
   +"Zones: from each activity's wording, extract WHERE the trade is working (building, level, gate or area). Where it clearly corresponds to an entry in the app's current zone list, use that entry exactly: "+JSON.stringify(siteLocations)+". Where the draft names a location not in that list, still return it, as a short tidy label in the form 'Building E - Level 1' (building or area first, then level if given) — the app will ask the user to confirm new zones, so do not omit or force-fit them. Only leave 'zones' empty when the activity gives no location at all. "
+  +"Order: list the contractors in 'trades' in exactly the order they first appear in the source, top to bottom. Do not sort or group them. "
   +"Return STRICT JSON only, no markdown, no code fences, exactly this shape: "
   +'{"date":"YYYY-MM-DD","weather":"...","deliveries":"...","trades":[{"subcontractor":"name as written","tasks":["..."],"zones":["..."]}],"uncertain":["..."]}';
 }
@@ -1667,6 +1681,7 @@ function buildWhiteboardPrompt(){
   +"Accuracy rules: classify tasks by the work the trade is physically doing, not its downstream purpose — 'preparing/building a piling platform', 'cut/fill', 'importing DGB/fill' are earthworks tasks, NOT piling; 'trenching for services' is excavation. When unsure, keep the task text verbatim and add a note to 'uncertain' rather than reinterpreting it. "
   +"Keep task wording verbatim from the board — do not paraphrase or tidy the supervisor's wording. "
   +"Zones: where a written zone or plan marking clearly corresponds to an entry in the app's current zone list, use that entry exactly: "+JSON.stringify(siteLocations)+". Where the board names a location not in that list, still return it as a short tidy label in the form 'Building E - Level 1' — the app will ask the user to confirm new zones. Only leave 'zones' empty when no location is given. "
+  +"Order: list the contractors in 'trades' in exactly the order they first appear in the source, top to bottom. Do not sort or group them. "
   +"Return STRICT JSON only, no markdown, no code fences, exactly this shape: "
   +'{"date":"YYYY-MM-DD","weather":"...","deliveries":"...","trades":[{"subcontractor":"name as written","tasks":["..."],"zones":["..."]}],"uncertain":["..."]}';
 }
@@ -1793,11 +1808,12 @@ function applyWhiteboard(data){
     document.getElementById("siteDate").value=data.date;
     dateNote=esc(data.date);
   } else { dateNote='<span class="wb-err">not read — check the date field</span>'; }
-  const matched=[],unmatched=[],fromBench=[];
+  const matched=[],unmatched=[],fromBench=[],ordOf={};
   _wbPendingZones=[];
-  (Array.isArray(data.trades)?data.trades:[]).forEach(tr=>{
+  (Array.isArray(data.trades)?data.trades:[]).forEach((tr,idx)=>{
     const sub=matchSubbie(tr.subcontractor||"");
-    if(!sub){ unmatched.push(tr); return; }
+    if(!sub){ tr._ord=idx; unmatched.push(tr); return; }
+    if(ordOf[sub]==null) ordOf[sub]=idx;
     const so=subbieByName(sub);
     if(so&&so.benched){ so.benched=false; fromBench.push(sub); }
     const acts=(Array.isArray(tr.tasks)?tr.tasks:[]).join("\n");
@@ -1823,6 +1839,9 @@ function applyWhiteboard(data){
     const keep=new Set(matched.map(m=>m.sub));
     removedNames=trades.filter(t=>!keep.has(t.name)).map(t=>t.name);
     trades=trades.filter(t=>keep.has(t.name));
+    // Cards follow the draft's order, so copying down the page matches HammerTech row for row.
+    trades.forEach(t=>{ t.ord=ordOf[t.name]; });
+    trades.sort((a,b)=>a.ord-b.ord);
   }
   saveSubbies(); saveTrades(); renderTrades(); renderSubbiePicker(); updatePickerSummary(); renderSubbies();
   let html='<div class="wb-summary"><span class="wb-draft">DRAFT — review the trade cards below before generating</span>';
@@ -1830,15 +1849,17 @@ function applyWhiteboard(data){
   if(matched.length) html+="<div style='color:var(--text2);font-size:12px;margin-top:2px;'>"+matched.map(m=>esc(m.boardName)+" → "+esc(m.sub)+" ("+m.tasks+" task"+(m.tasks===1?"":"s")+(m.zones.length?", "+m.zones.map(esc).join(", "):"")+")").join("<br>")+"</div>";
   if(fromBench.length) html+="<div style='margin-top:4px;'>Pulled off the bench: "+fromBench.map(esc).join(", ")+"</div>";
   if(removedNames.length) html+="<div style='margin-top:4px;'>Removed (not on this draft): "+removedNames.map(esc).join(", ")+"</div>";
+  let fix="";
   if(_wbPendingZones.length){
-    html+='<div class="wb-uncertain"><strong>New zones detected — confirm before they are added:</strong>'
-      +_wbPendingZones.map((z,i)=>`<div id="wbZn_${i}" style="margin-top:6px;">
-        "${esc(z.label)}" — ${z.trades.map(esc).join(", ")}<br>
-        <select id="wbZnSel_${i}" style="max-width:70%;font-size:12px;padding:4px;">
-          <option value="__new__">➕ Add "${esc(z.label)}" as a new zone</option>
+    fix+='<div class="wb-uncertain"><strong>Zones on the draft that are not in the zone list. Correct the name if it was mistyped, or match it to an existing zone:</strong>'
+      +_wbPendingZones.map((z,i)=>`<div id="wbZn_${i}" style="margin-top:8px;">
+        "${esc(z.label)}" on ${z.trades.map(esc).join(", ")}<br>
+        <select id="wbZnSel_${i}" style="max-width:46%;font-size:12px;padding:4px;" onchange="document.getElementById('wbZnTxt_${i}').style.display=this.value==='__new__'?'':'none'">
+          <option value="__new__">➕ Add as a new zone, named:</option>
           ${siteLocations.map(l=>`<option value="${esc(l)}">Same as: ${esc(l)}</option>`).join("")}
           <option value="__skip__">Ignore</option>
         </select>
+        <input type="text" id="wbZnTxt_${i}" value="${esc(z.label)}" style="width:32%;font-size:12px;padding:4px;">
         <button class="btn btn-ghost btn-sm" onclick="wbConfirmZone(${i})">Confirm</button>
       </div>`).join("")+"</div>";
   }
@@ -1849,14 +1870,16 @@ function applyWhiteboard(data){
     const opts='<option value="">Choose subcontractor…</option>'
       +subbies.map(s=>`<option value="${esc(s.name)}">${esc(s.name)}${s.benched?" (bench)":""}</option>`).join("")
       +'<option value="__new__">➕ Add as new subcontractor</option>';
-    html+='<div class="wb-unmatched"><strong>UNMATCHED — assign manually:</strong>'
+    fix+='<div class="wb-unmatched"><strong>UNMATCHED — assign manually:</strong>'
       +unmatched.map((u,i)=>`<div id="wbUm_${i}" style="margin-top:6px;">
         ${esc(u.subcontractor||"(unnamed)")}${u.tasks&&u.tasks.length?": "+u.tasks.map(esc).join("; "):""}<br>
         <select id="wbUmSel_${i}" style="max-width:70%;font-size:12px;padding:4px;">${opts}</select>
         <button class="btn btn-ghost btn-sm" onclick="wbAssignUnmatched(${i})">Assign</button>
       </div>`).join("")+"</div>";
   }
-  if(Array.isArray(data.uncertain)&&data.uncertain.length) html+='<div class="wb-uncertain"><strong>Uncertain / faded — please confirm:</strong><br>'+data.uncertain.map(esc).join("<br>")+"</div>";
+  if(Array.isArray(data.uncertain)&&data.uncertain.length) fix+='<div class="wb-uncertain"><strong>Uncertain / faded — please confirm:</strong><br>'+data.uncertain.map(esc).join("<br>")+"</div>";
+  { const rt=document.getElementById("reviewTop"); if(rt){ rt.innerHTML=fix; rt.style.display=fix?"block":"none"; } }
+  if(fix) html+="<div style='margin-top:6px;'><strong>Items to confirm are at the top of step 3.</strong></div>";
   html+="</div>";
   wbShowStatus(html);
 }
@@ -1867,16 +1890,19 @@ function wbConfirmZone(i){
   captureActivities();
   let target=null;
   if(choice==="__new__"){
-    if(!siteLocations.some(l=>normName(l)===z.norm)){ siteLocations.push(z.label); saveLocations(); renderLocations(); }
-    target=siteLocations.find(l=>normName(l)===z.norm)||z.label;
+    const typed=((document.getElementById("wbZnTxt_"+i)||{}).value||"").trim()||z.label, tn=normName(typed);
+    if(!siteLocations.some(l=>normName(l)===tn)){ siteLocations.push(typed); saveLocations(); renderLocations(); }
+    target=siteLocations.find(l=>normName(l)===tn)||typed;
   } else if(choice!=="__skip__") target=choice;
+  z.done=true;
   if(target){
     z.trades.forEach(nm=>{
       const t=trades.find(x=>x.name===nm);
-      if(t){ t.locations=t.locations||[]; if(!t.locations.includes(target)) t.locations.push(target); }
+      if(t){ t.locations=t.locations||[]; if(!t.locations.includes(target)){ t.locations.push(target); if(t.results){ t.results=null; t._regen=true; } } }
     });
     saveTrades(); renderTrades();
-  }
+  } else renderTrades();
+  if(window.afterFix) setTimeout(afterFix,0);
   const row=document.getElementById("wbZn_"+i);
   if(row) row.innerHTML=(choice==="__skip__")?('Ignored "'+esc(z.label)+'"'):('✓ "'+esc(z.label)+'" → <strong>'+esc(target)+"</strong>");
 }
@@ -1910,7 +1936,9 @@ function wbAssignUnmatched(i){
   let t=trades.find(x=>x.name===target);
   if(!t){ t={id:nextId++,name:target,activities:"",locations:[],results:null,loading:false,error:null}; trades.push(t); }
   t.activities=acts; t.locations=zones; t.results=null; t.error=null;
+  if(u._ord!=null&&t.ord==null){ t.ord=u._ord; trades.sort((a,b)=>(a.ord==null?1e9:a.ord)-(b.ord==null?1e9:b.ord)); }
   saveSubbies(); saveTrades(); renderTrades(); renderSubbies(); renderSubbiePicker(); updatePickerSummary();
+  if(window.afterFix) setTimeout(afterFix,0);
   const row=document.getElementById("wbUm_"+i);
   if(row) row.innerHTML="✓ "+esc(u.subcontractor||"")+" assigned to <strong>"+esc(target)+"</strong>"+(choice!=="__new__"?" — will match automatically next time":"");
 }
@@ -2527,7 +2555,8 @@ function renderNeeds(){
   document.getElementById("need2").innerHTML=needHtml("Step 2: after the 1pm meeting","You get: tomorrow's roster, trade cards and hazard controls, straight from the meeting draft.",[
     [dOk?"ok":"todo", dOk?("Meeting draft read: "+escH(d.name||"draft")+" <small>at "+new Date(d.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})+(d.date?", for "+fmtDMY(d.date):"")+"</small>"):"Upload the meeting draft (PDF or TXT) typed in HammerTech during the meeting, then press Extract"+(d&&d.at?" <small>(last read "+new Date(d.at).toLocaleDateString()+")</small>":"")],
     [n?"ok":"todo", n?(n+" subcontractor"+(n===1?"":"s")+" on the roster"):"No subcontractors on the roster yet"],
-    [n&&gen===n?"ok":(gen?"todo":"info"), "Controls generated on "+gen+" of "+n+" cards"]
+    [n&&gen===n?"ok":(gen?"todo":"info"), "Controls generated on "+gen+" of "+n+" cards"],
+    [wxCurrent()?"ok":"info", wxCurrent()?"Weather added <small>(used in the controls where it matters to the trade)</small>":"Optional: add the forecast (screenshot or text) before reading the draft, so storm, wind, rain or heat triggers go into the controls"]
   ],"Hold point: make sure the draft is right before you upload it. If something is wrong, fix the draft and upload it again; only changed cards are regenerated.");
   document.getElementById("need3").innerHTML=needHtml("Step 3: prestart","You get: the reviewed controls to copy into HammerTech. Small fixes can be made on a card here and that card regenerated.",[
     [dv?"ok":"todo","Site date: "+fmtDMY(dv)+" <small>(this date goes into each controls header)</small>"],
@@ -2543,7 +2572,19 @@ function renderNeeds(){
 }
 (function(){
   const _rt=renderTrades;
-  renderTrades=function(){ const r=_rt.apply(this,arguments); try{ saveTrades(); renderNeeds(); }catch(e){} return r; };
+  renderTrades=function(){ const r=_rt.apply(this,arguments); try{ saveTrades(); renderNeeds(); markChecks(); }catch(e){} return r; };
+  function markChecks(){
+    const cards=document.getElementById("tradesList").children; if(cards.length!==trades.length) return;
+    trades.forEach((t,i)=>{ const zs=_wbPendingZones.filter(z=>!z.done&&z.trades.includes(t.name)).map(z=>z.label);
+      if(!zs.length) return; cards[i].classList.add("needs-check");
+      const n=document.createElement("div"); n.className="needs-check-note"; n.textContent="Zone to confirm at the top of this page: "+zs.join(", "); cards[i].insertBefore(n,cards[i].firstChild); });
+  }
+  window.afterFix=function(){
+    const left=document.querySelector('[id^="wbZnSel_"],[id^="wbUmSel_"]');
+    if(!left) window._chainNote="";
+    if(trades.some(t=>(t.activities||"").trim()&&!t.results&&!t.loading)) genMissing();
+    else if(!left) chainSet("All items confirmed. Controls are ready on "+trades.filter(t=>t.results).length+" of "+trades.length+" cards.","ok");
+  };
   const _aw=applyWhiteboard;
   applyWhiteboard=function(data){
     const sig=t=>(t.activities||"").trim()+"|"+(t.locations||[]).slice().sort().join(";");
@@ -2558,6 +2599,28 @@ function renderNeeds(){
     try{ const f=(document.getElementById("wbFileInput").files||[])[0]; const d=loadDay(); d.draft={name:f?f.name:"meeting draft",at:new Date().toISOString(),date:(data&&data.date)||""}; saveDay(d); renderNeeds(); }catch(e){}
     return r;
   };
+  window.wxCurrent=function(){ const w=loadDay().weather; return (w&&w.text&&Date.now()-new Date(w.at).getTime()<20*3600*1000)?w.text:""; };
+  window.wxSave=function(){ const v=document.getElementById("wxText").value.trim(), d=loadDay(), had=(d.weather&&d.weather.text)||"";
+    if(v) d.weather={text:v,at:new Date().toISOString()}; else delete d.weather; saveDay(d); renderNeeds();
+    const st=document.getElementById("wxStatus"), gen=trades.filter(t=>t.results).length;
+    st.innerHTML=(v&&gen&&v!==had)?("Weather changed after controls were generated. <button class='btn btn-ghost btn-sm' onclick='wxRegen()'>Regenerate all "+gen+" cards with this weather</button>"):(v?"Weather saved. It is used for controls generated in the next 20 hours.":""); };
+  window.wxRegen=function(){ captureActivities(); trades.forEach(t=>{ if((t.activities||"").trim()){ t.results=null; t.error=null; } }); renderTrades(); document.getElementById("wxStatus").textContent=""; genMissing(); };
+  window.onWxFile=async function(inp){
+    const f=inp.files&&inp.files[0]; if(!f) return; const st=document.getElementById("wxStatus");
+    const apiKey=(localStorage.getItem("tphs_apikey")||"").trim(); if(!apiKey){ st.textContent="Set the API key first, or type the forecast into the box."; return; }
+    document.getElementById("wxLabel").textContent="🌦 "+f.name; st.textContent="Reading the forecast…";
+    try{
+      const img=await new Promise((res,rej)=>{ const im=new Image(), url=URL.createObjectURL(f); im.onload=()=>{ URL.revokeObjectURL(url); const sc=Math.min(1,2000/Math.max(im.width,im.height)), c=document.createElement("canvas"); c.width=Math.round(im.width*sc); c.height=Math.round(im.height*sc); const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,c.width,c.height); x.drawImage(im,0,0,c.width,c.height); res(c.toDataURL("image/jpeg",0.9).split(",")[1]); }; im.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error("Could not open that file as an image.")); }; im.src=url; });
+      const prompt="This is a screenshot of a weather forecast (usually the Bureau of Meteorology) for a construction site in western Sydney. Write the forecast as ONE plain line for a site whiteboard, using only what the screenshot shows, in this order and style: 'Min 19\u00b0C, max 33\u00b0C. Rain: 90% chance, 2 to 15 mm; <timing>. <Thunderstorm, hail or other warnings, if any>. Wind: <direction, speed and timing>. Fire danger: <rating>.' Leave out any item the screenshot does not show; never estimate. No preamble, no quotes.";
+      const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        body:JSON.stringify({model:"claude-fable-5",max_tokens:400,output_config:{effort:"high"},messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:"image/jpeg",data:img}},{type:"text",text:prompt}]}]})});
+      if(!resp.ok){ const er=await resp.json().catch(()=>({})); throw new Error((er&&er.error&&er.error.message)||"API error "+resp.status); }
+      const data=await resp.json(); const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join(" ").replace(/\s+/g," ").trim();
+      if(!text) throw new Error("Empty reply");
+      document.getElementById("wxText").value=text; wxSave(); if(!document.getElementById("wxStatus").innerHTML.includes("button")) st.textContent="Forecast read. Check the wording in the box and correct it if needed.";
+    }catch(e){ st.textContent="Could not read the screenshot ("+(e.message||"error")+"). Type the forecast into the box instead."; }
+    inp.value="";
+  };
   window.chainSet=function(html,kind){ const el=document.getElementById("chainStatus"); if(!el) return; el.style.display=html?"block":"none"; el.style.borderLeft="4px solid "+(kind==="ok"?"var(--success)":kind==="warn"?"#E6A700":"#0B5E58"); el.innerHTML=html; };
   window.genMissing=async function(){
     if(!(localStorage.getItem("tphs_apikey")||"").trim()){ document.getElementById("warnBanner").classList.add("show"); chainSet("Set the Anthropic API key in the sidebar, then press <button class='btn btn-primary btn-sm' onclick='genMissing()'>Generate controls</button>","warn"); return; }
@@ -2566,19 +2629,20 @@ function renderNeeds(){
     for(let i=0;i<todo.length;i++){ chainSet("Generating controls: "+(i+1)+" of "+todo.length+" ("+escH(todo[i].name)+")…"); await generateOne(todo[i].id); }
     const bad=trades.filter(t=>t.error).map(t=>escH(t.name)), empty=trades.filter(t=>!(t.activities||"").trim()).map(t=>escH(t.name));
     if(bad.length) chainSet("Controls failed for: "+bad.join(", ")+". <button class='btn btn-primary btn-sm' onclick='genMissing()'>Try again</button>","warn");
-    else chainSet("Controls are ready on "+trades.filter(t=>t.results).length+" of "+trades.length+" cards."+(empty.length?" No activities on the draft for: "+empty.join(", ")+".":"")+" <button class='btn btn-primary btn-sm' onclick=\"showStep('step3')\">Go to step 3 to review</button>","ok");
+    else chainSet("Controls are ready on "+trades.filter(t=>t.results).length+" of "+trades.length+" cards."+(empty.length?" No activities on the draft for: "+empty.join(", ")+".":"")+(window._chainNote||"")+" <button class='btn btn-primary btn-sm' onclick=\"showStep('step3')\">Go to step 3 to review</button>",window._chainNote?"warn":"ok");
   };
   window.chainAfterExtract=function(kept,uncertain){
     const pending=document.querySelector('[id^="wbZnSel_"],[id^="wbUmSel_"]');
     const keptMsg=kept?(kept+" unchanged card"+(kept===1?" keeps":"s keep")+" existing controls. "):"";
-    if(pending||uncertain){ chainSet(keptMsg+"The draft has items to confirm above (unmatched contractor, new zone or uncertain text). Confirm them, then press <button class='btn btn-primary btn-sm' onclick='genMissing()'>Generate controls</button>","warn"); return; }
-    chainSet(keptMsg+"Draft read cleanly. Generating controls…"); genMissing();
+    window._chainNote=(pending||uncertain)?" There are items to confirm at the top of step 3 (unmatched contractor, new zone or uncertain text); affected cards are highlighted and regenerate when you confirm.":"";
+    chainSet(keptMsg+"Draft read. Generating controls…"); genMissing();
   };
   document.addEventListener("DOMContentLoaded",()=>{
     let s="step2"; try{ s=sessionStorage.getItem("tphs_step")||s; }catch(e){}
     if(!document.getElementById(s)) s="step2";
     showStep(s);
     const sd=document.getElementById("siteDate"); if(sd) sd.addEventListener("change",renderNeeds);
+    try{ document.getElementById("wxText").value=wxCurrent(); }catch(e){}
     document.getElementById("tradesList").addEventListener("input",ev=>{ if(ev.target&&ev.target.tagName==="TEXTAREA"){ captureActivities(); saveTrades(); renderNeeds(); } });
   });
 })();
