@@ -737,8 +737,7 @@ let _pendingFiles = [];
 let _assignDocId = null;
 
 document.addEventListener("DOMContentLoaded", () => {
-  const tom = new Date(); tom.setDate(tom.getDate()+1);
-  document.getElementById("siteDate").value = tom.toISOString().split("T")[0];
+  document.getElementById("siteDate").value = nextWorkDay(mbISO(new Date()));   // local time; Fri, Sat and Sun roll to Monday
   updateApiKeyStatus();
   loadSubbies();
   loadLocations();
@@ -1834,10 +1833,11 @@ function matchZone(label){
 function applyWhiteboard(data){
   captureActivities();
   let dateNote="";
+  const ruleDate=nextWorkDay(((document.getElementById("mbDate")||{}).value)||mbISO(new Date()));
   if(data.date&&/^\d{4}-\d{2}-\d{2}$/.test(data.date)){
-    document.getElementById("siteDate").value=data.date;
-    dateNote=esc(data.date);
-  } else { dateNote='<span class="wb-err">not read — check the date field</span>'; }
+    document.getElementById("siteDate").value=data.date; window._sdManual=false;
+    dateNote=esc(fmtDMY(data.date))+" (from the draft)"+(data.date!==ruleDate?' <span class="wb-err">This is not the next working day after the meeting date ('+esc(fmtDMY(ruleDate))+'). Check it is right.</span>':"");
+  } else { if(!window._sdManual) document.getElementById("siteDate").value=ruleDate; dateNote=esc(fmtDMY(document.getElementById("siteDate").value))+' <span class="wb-err">The draft did not state a date, so the next working day is used. Check the date field.</span>'; }
   const matched=[],unmatched=[],fromBench=[],ordOf={};
   _wbPendingZones=[];
   (Array.isArray(data.trades)?data.trades:[]).forEach((tr,idx)=>{
@@ -2300,11 +2300,16 @@ function onProgramFile(inp){
 }
 
 // ---- drone photo and two-click alignment
+// Prestart date rule: the working day after the meeting. Mon to Thu -> next day; Fri, Sat, Sun -> Monday.
+function nextWorkDay(iso){ const d=mbDate(iso), wd=d.getDay(); return mbISO(mbAdd(d,wd===5?3:wd===6?2:1)); }
+function syncSiteDate(){ if(window._sdManual) return; const dr=loadDay().draft; if(dr&&dr.date&&sameLocalDay(dr.at)) return;   // a date typed by hand, or read from today's draft, is left alone
+  const md=(document.getElementById("mbDate")||{}).value; if(md){ document.getElementById("siteDate").value=nextWorkDay(md); renderNeeds(); } }
 function onMbPhoto(inp){
   const f=inp.files&&inp.files[0]; if(!f) return;
   MB.photoName=f.name;
   const m=/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})\d{2}/.exec(f.name);
   const t=document.getElementById("mbTime");
+  if(m&&+m[1]>2020&&+m[2]>=1&&+m[2]<=12&&+m[3]>=1&&+m[3]<=31){ document.getElementById("mbDate").value=m[1]+"-"+m[2]+"-"+m[3]; mbFilterRows(); syncSiteDate(); }   // the photo's own date sets the meeting date
   if(m) t.value=m[4]+":"+m[5]; else if(f.lastModified){ const d=new Date(f.lastModified); t.value=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
   const img=new Image();
   img.onload=()=>{ MB.img=img; MB.clicks=[];
@@ -2873,7 +2878,7 @@ async function mbBuild(){
   }catch(e){ st.style.color="#B3261E"; st.textContent="Could not build the board: "+e.message; }
 }
 document.addEventListener("DOMContentLoaded",()=>{
-  const d=document.getElementById("mbDate"); if(d){ d.value=mbISO(new Date()); d.addEventListener("change",()=>{ mbFilterRows(); renderNeeds(); }); }
+  const d=document.getElementById("mbDate"); if(d){ d.value=mbISO(new Date()); d.addEventListener("change",()=>{ mbFilterRows(); syncSiteDate(); renderNeeds(); }); }
   const p=loadProgram(), ps=document.getElementById("progStatus"); if(p&&ps){ ps.textContent="Loaded: "+p.source; ps.style.color="var(--success)"; }
 });
 
@@ -3000,7 +3005,7 @@ function renderNeeds(){
     let s="step2"; try{ s=sessionStorage.getItem("tphs_step")||s; }catch(e){}
     if(!document.getElementById(s)) s="step2";
     showStep(s);
-    const sd=document.getElementById("siteDate"); if(sd) sd.addEventListener("change",renderNeeds);
+    const sd=document.getElementById("siteDate"); if(sd) sd.addEventListener("change",()=>{ window._sdManual=true; renderNeeds(); });
     try{ document.getElementById("wxText").value=wxCurrent(); }catch(e){}
     try{ document.getElementById("fwStart").value=fwDefaultStart(); }catch(e){}
     try{ dabLoadPack(); DAB.plan=loadDay().plan||null; dabLoadPhoto(); if(DAB.pack){ const ps=document.getElementById("packStatus"); ps.textContent="Loaded: "+Object.keys(DAB.pack.zones).length+" photo zones"+(DAB.pack.made?" (zone map of "+DAB.pack.made+")":"")+"."; } renderNeeds(); }catch(e){}
