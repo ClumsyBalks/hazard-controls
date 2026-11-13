@@ -2825,9 +2825,9 @@ function dabPlanPrompt(){
 async function dabMakePlan(){
   const apiKey=(localStorage.getItem("tphs_apikey")||"").trim(); if(!apiKey) throw new Error("Set the API key in the sidebar first.");
   const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-    body:JSON.stringify({model:"claude-fable-5",max_tokens:6000,output_config:{effort:"high"},messages:[{role:"user",content:dabPlanPrompt()}]})});
+    body:JSON.stringify({model:"claude-fable-5",max_tokens:24000,output_config:{effort:"high"},messages:[{role:"user",content:dabPlanPrompt()}]})});
   if(!resp.ok){ const er=await resp.json().catch(()=>({})); throw new Error((er&&er.error&&er.error.message)||"API error "+resp.status); }
-  const data=await resp.json(); if(data.stop_reason==="max_tokens") throw new Error("The board plan was cut off. Try again.");
+  const data=await resp.json(); if(data.stop_reason==="max_tokens") throw new Error("The board plan reply was longer than the app allows. Press Build again; if it repeats, tell Claude.");
   let raw=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n").replace(/```json|```/g,"").trim(); const a=raw.indexOf("{"), z=raw.lastIndexOf("}"); if(a>=0&&z>a) raw=raw.slice(a,z+1);
   let p; try{ p=JSON.parse(raw); }catch(e){ throw new Error("Could not read the board plan reply."); }
   const zones=dabZones(), day=loadDay(), dr=day.draft||{}, split=s=>String(s||"").split(/\n|;\s+/).map(v=>v.trim()).filter(v=>v&&!/^(none|nil|n\/a|no)\.?$/i.test(v));
@@ -3037,7 +3037,7 @@ function renderNeeds(){
       const img=await new Promise((res,rej)=>{ const im=new Image(), url=URL.createObjectURL(f); im.onload=()=>{ URL.revokeObjectURL(url); const sc=Math.min(1,2000/Math.max(im.width,im.height)), c=document.createElement("canvas"); c.width=Math.round(im.width*sc); c.height=Math.round(im.height*sc); const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,c.width,c.height); x.drawImage(im,0,0,c.width,c.height); res(c.toDataURL("image/jpeg",0.9).split(",")[1]); }; im.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error("Could not open that file as an image.")); }; im.src=url; });
       const prompt="This is a screenshot of a weather forecast (usually the Bureau of Meteorology) for a construction site in western Sydney. Write the forecast as ONE plain line for a site whiteboard, using only what the screenshot shows, in this order and style: 'Min 19\u00b0C, max 33\u00b0C. Rain: 90% chance, 2 to 15 mm; <timing>. <Thunderstorm, hail or other warnings, if any>. Wind: <direction, speed and timing>. Fire danger: <rating>.' Leave out any item the screenshot does not show; never estimate. No preamble, no quotes.";
       const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-        body:JSON.stringify({model:"claude-fable-5",max_tokens:400,output_config:{effort:"high"},messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:"image/jpeg",data:img}},{type:"text",text:prompt}]}]})});
+        body:JSON.stringify({model:"claude-fable-5",max_tokens:3000,output_config:{effort:"high"},messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:"image/jpeg",data:img}},{type:"text",text:prompt}]}]})});
       if(!resp.ok){ const er=await resp.json().catch(()=>({})); throw new Error((er&&er.error&&er.error.message)||"API error "+resp.status); }
       const data=await resp.json(); const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join(" ").replace(/\s+/g," ").trim();
       if(!text) throw new Error("Empty reply");
