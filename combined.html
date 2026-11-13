@@ -553,6 +553,14 @@
     <div class="mb-status" id="progStatus">No programme loaded on this device.</div>
   </div>
   <div class="trade-card mb-card">
+    <div class="field-label">Save folder <small>(Chrome or Edge on a computer)</small></div>
+    <div class="mb-status">Choose your 1pm prestart folder once. Each document is then saved straight into a subfolder dated for the prestart day (the step 3 date), created if it does not exist. The 1pm meeting board goes into the next working day's folder, with that morning's prestart documents. A rebuilt document replaces the earlier one of the same name. The download buttons stay as a fallback.</div>
+    <div class="mb-row"><button class="btn btn-primary" onclick="saveChoose()">Choose folder</button><button class="btn btn-ghost btn-sm" onclick="saveForget()">Stop saving to a folder</button></div>
+    <div class="mb-row"><label class="field-label" for="savePattern">Subfolder name</label><input type="text" id="savePattern" style="width:230px;" oninput="saveCfgSet('pattern',this.value)">
+      <span class="mb-status">YYYY, MM and DD are replaced by the date; the rest is kept as typed. "YYYYMMDD - TPHS DAPM" gives "20261116 - TPHS DAPM".</span></div>
+    <div class="mb-status" id="saveStatus"></div>
+  </div>
+  <div class="trade-card mb-card">
     <div class="field-label">Site pack <small>(photo zone map and logo)</small></div>
     <div class="mb-status">Needed for the Daily Activities Board. Claude supplies this file whenever the Bluebeam zone layout changes. It stays on this device.</div>
     <div class="mb-row"><div class="upload-btn-wrap mb-file"><div class="upload-btn">📎 Load site pack (.json)</div><input type="file" accept=".json,application/json" onchange="onSitePack(this)"></div></div>
@@ -2616,6 +2624,7 @@ async function fwBuild(){
     const a=document.getElementById("fwDownload"); a.href=FW_URL; a.download=name; a.textContent="⬇ Download "+name; a.style.display="inline-flex";
     const pv=document.getElementById("fwPrev"); pv.width=1190; pv.height=842; pv.getContext("2d").drawImage(c,0,0,1190,842); pv.style.display="block";
     st.style.color="var(--success)"; st.textContent="Built from "+prog.source+". One A3 landscape page.";
+    saveFiles([{blob:pdf,name:name,kind:"fw",date:v}],st);   // filed in the folder of the prestart date showing
   }catch(e){ st.style.color="#B3261E"; st.textContent="Could not build it: "+e.message; }
 }
 // ================= Daily Activities Board + A3 print pack (step 3) =================
@@ -2854,9 +2863,41 @@ async function dabBuild(replan){
     const pv=document.getElementById("dabPrev"); pv.width=1600; pv.height=750; pv.getContext("2d").drawImage(b.canvas,0,0,1600,750); pv.style.display="block";
     const noZone=plan.rows.map((r,i)=>r[3].length?null:(i+1)+". "+r[0]).filter(Boolean);
     st.style.color="var(--success)"; st.innerHTML="Board and "+pages.length+"-page print pack built."+pourNote+(noZone.length?" <span style='color:#8A6100'>Not marked on a photo (no matching zone): "+escH(noZone.join(", "))+".</span>":"")+(b.unplaced.length?" <span style='color:#8A6100'>No room for a label: "+escH(b.unplaced.join("; "))+".</span>":"")+(plan.weather?"":" <span style='color:#8A6100'>No weather entered in step 2, so the weather box is blank.</span>");
+    saveFiles([{blob:pdf1,name:n1,kind:"dab",date:plan.for_date},{blob:pdf2,name:n2,kind:"dab",date:plan.for_date}],st);
     const d=loadDay(); d.dab={at:new Date().toISOString(),date:plan.for_date}; saveDay(d); renderNeeds(); btn.disabled=false; return true;
   }catch(e){ st.style.color="#B3261E"; st.textContent="Could not build the board: "+(e.message||e); btn.disabled=false; return false; }
 }
+// ================= Save straight into a chosen folder, in dated subfolders (desktop Chrome/Edge) =================
+const SAVE={dir:null,pending:[]};
+function saveCfg(){ let c={}; try{ c=JSON.parse(localStorage.getItem("tphs_savecfg_v1")||"{}")||{}; }catch(e){} return {pattern:c.pattern||"YYYYMMDD - TPHS DAPM",name:c.name||""}; }
+function saveCfgSet(k,v){ const c=saveCfg(); c[k]=v; localStorage.setItem("tphs_savecfg_v1",JSON.stringify(c)); saveUi(); }
+function saveFolderName(iso){ const d=mbDate(iso), p2=n=>String(n).padStart(2,"0"), map={YYYY:d.getFullYear(),YY:p2(d.getFullYear()%100),MM:p2(d.getMonth()+1),DD:p2(d.getDate())};
+  return (saveCfg().pattern.replace(/YYYY|YY|MM|DD/g,m=>map[m]).replace(/[\\/:*?"<>|]/g,"-").trim())||mbISO(d).replace(/-/g,""); }
+// Every document is filed under the PRESTART day (the step 3 date), so the meeting board sits with the next morning's documents.
+function savePrestartDate(){ const sd=(document.getElementById("siteDate")||{}).value||"", md=(document.getElementById("mbDate")||{}).value||mbISO(new Date()); return (sd&&sd>md)?sd:nextWorkDay(md); }
+function saveDateFor(kind,iso){ return kind==="dab"?iso:savePrestartDate(); }
+async function saveInit(){ try{ SAVE.dir=await idbGet("save_dir"); }catch(e){ SAVE.dir=null; } saveUi(); }
+function saveUi(){ const el=document.getElementById("saveStatus"); if(!el) return; const c=saveCfg(), ok=!!window.showDirectoryPicker;
+  const pi=document.getElementById("savePattern"); if(pi&&document.activeElement!==pi) pi.value=c.pattern;
+  el.textContent=!ok?"This browser cannot save into a folder. Use Chrome or Edge on a computer; until then the download buttons work as before.":(SAVE.dir?("Saving into: "+(c.name||SAVE.dir.name)+"  >  "+saveFolderName(savePrestartDate())+"  (the folder for the prestart date now showing)"):"No folder chosen. Documents are offered as downloads only."); }
+async function saveChoose(){ if(!window.showDirectoryPicker){ saveUi(); return; }
+  try{ const h=await window.showDirectoryPicker({mode:"readwrite",id:"tphs-prestart"}); SAVE.dir=h; await idbPut("save_dir",h); saveCfgSet("name",h.name); }catch(e){ if(e&&e.name!=="AbortError") document.getElementById("saveStatus").textContent="Could not use that folder: "+e.message; } }
+async function saveForget(){ SAVE.dir=null; try{ await idbDel("save_dir"); }catch(e){} saveCfgSet("name",""); }
+// files: [{blob,name,kind,date}] -> a short message for the status line
+async function saveFiles(files,statusEl){
+  if(!SAVE.dir||!files.length) return "";
+  const note=(html,col)=>{ if(!statusEl) return; let n=statusEl.parentNode.querySelector(".save-note[data-for='"+statusEl.id+"']"); if(!n){ n=document.createElement("div"); n.className="mb-status save-note"; n.dataset.for=statusEl.id; statusEl.parentNode.insertBefore(n,statusEl.nextSibling); } n.style.color=col||"var(--text2)"; n.innerHTML=html; };
+  try{
+    let perm="granted"; if(SAVE.dir.queryPermission) perm=await SAVE.dir.queryPermission({mode:"readwrite"});
+    if(perm!=="granted"&&SAVE.dir.requestPermission){ try{ perm=await SAVE.dir.requestPermission({mode:"readwrite"}); }catch(e){ perm="prompt"; } }
+    if(perm!=="granted"){ SAVE.pending=files; SAVE.pendingEl=statusEl; note("Not yet saved to the folder: Chrome needs you to allow access for this session. <button class='btn btn-primary btn-sm' onclick='saveRetry()'>Allow and save "+files.length+" file"+(files.length===1?"":"s")+"</button>","#8A6100"); return ""; }
+    const done=[];
+    for(const f of files){ const sub=saveFolderName(saveDateFor(f.kind,f.date)), dir=f.kind==="root"?SAVE.dir:await SAVE.dir.getDirectoryHandle(sub,{create:true});
+      const fh=await dir.getFileHandle(f.name,{create:true}), w=await fh.createWritable(); await w.write(f.blob); await w.close(); done.push((f.kind==="root"?"":sub+" / ")+f.name); }
+    SAVE.pending=[]; note("Saved to "+escH(saveCfg().name||SAVE.dir.name)+": "+done.map(escH).join("; ")+".","var(--success)"); return "saved";
+  }catch(e){ SAVE.pending=files; SAVE.pendingEl=statusEl; note("Could not save to the folder ("+escH(e.message||String(e))+"). Use the download buttons, or <button class='btn btn-ghost btn-sm' onclick='saveRetry()'>try again</button>. If the file is open in Bluebeam, close it first.","#B3261E"); return ""; }
+}
+function saveRetry(){ if(SAVE.pending&&SAVE.pending.length) saveFiles(SAVE.pending,SAVE.pendingEl); }
 function pdfFromJpeg(jpg,pxW,pxH,pageW,pageH,title){
   const enc=new TextEncoder(), parts=[], offs=[]; let len=0;
   const push=b=>{ const u=typeof b==="string"?enc.encode(b):b; parts.push(u); len+=u.length; };
@@ -2891,7 +2932,8 @@ async function mbBuild(){
     if(MB.pdfUrl) URL.revokeObjectURL(MB.pdfUrl); MB.pdfUrl=URL.createObjectURL(pdf);
     const a=document.getElementById("mbDownload"); a.href=MB.pdfUrl; a.download=name; a.textContent="⬇ Download "+name; a.style.display="inline-flex";
     const pv=document.getElementById("mbBoardPrev"); pv.width=1280; pv.height=600; pv.getContext("2d").drawImage(c,0,0,1280,600); pv.style.display="block";
-    st.style.color="var(--success)"; st.textContent="Board built ("+(pdf.size/1048576).toFixed(1)+" MB). Check the preview, then download and open in Bluebeam.";
+    st.style.color="var(--success)"; st.textContent="Board built ("+(pdf.size/1048576).toFixed(1)+" MB). Check the preview, then "+(SAVE.dir?"open it from the folder":"download and open")+" in Bluebeam.";
+    saveFiles([{blob:pdf,name:name,kind:"board",date:d}],st);
     const day=loadDay(); day.board={at:new Date().toISOString(),date:d}; saveDay(day); renderNeeds(); dabSavePhoto();
   }catch(e){ st.style.color="#B3261E"; st.textContent="Could not build the board: "+e.message; }
 }
@@ -3023,9 +3065,10 @@ function renderNeeds(){
     let s="step2"; try{ s=sessionStorage.getItem("tphs_step")||s; }catch(e){}
     if(!document.getElementById(s)) s="step2";
     showStep(s);
-    const sd=document.getElementById("siteDate"); if(sd) sd.addEventListener("change",()=>{ window._sdManual=true; renderNeeds(); });
+    const sd=document.getElementById("siteDate"); if(sd) sd.addEventListener("change",()=>{ window._sdManual=true; renderNeeds(); saveUi(); });
     try{ document.getElementById("wxText").value=wxCurrent(); }catch(e){}
     try{ document.getElementById("fwStart").value=fwDefaultStart(); }catch(e){}
+    try{ saveInit(); }catch(e){}
     try{ dabLoadPack(); DAB.plan=loadDay().plan||null; dabLoadPhoto(); if(DAB.pack){ const ps=document.getElementById("packStatus"); ps.textContent="Loaded: "+Object.keys(DAB.pack.zones).length+" photo zones"+(DAB.pack.made?" (zone map of "+DAB.pack.made+")":"")+"."; } renderNeeds(); }catch(e){}
     document.getElementById("tradesList").addEventListener("input",ev=>{ if(ev.target&&ev.target.tagName==="TEXTAREA"){ captureActivities(); saveTrades(); renderNeeds(); } });
   });
