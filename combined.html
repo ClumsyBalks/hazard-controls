@@ -800,6 +800,7 @@ function removeLocation(name){
   captureActivities();
   siteLocations=siteLocations.filter(l=>l!==name);
   trades.forEach(t=>{ t.locations=(t.locations||[]).filter(l=>l!==name); });
+  { const al=loadZoneAlias(); Object.keys(al).forEach(k=>{ if(al[k]===name) delete al[k]; }); saveZoneAlias(al); }
   saveLocations(); saveTrades(); renderLocations(); renderTrades();
 }
 function editLocationName(el,oldName){
@@ -811,9 +812,11 @@ function editLocationName(el,oldName){
     const nn=el.textContent.trim();
     if(nn && nn!==oldName){
       captureActivities();
-      const i=siteLocations.indexOf(oldName);
-      if(i>=0) siteLocations[i]=nn;
-      trades.forEach(t=>{ t.locations=(t.locations||[]).map(l=>l===oldName?nn:l); });
+      const i=siteLocations.indexOf(oldName), dup=siteLocations.find(l=>l!==oldName&&normName(l)===normName(nn));
+      const to=dup||nn;                              // renaming onto an existing zone merges the two
+      if(dup) siteLocations=siteLocations.filter(l=>l!==oldName); else if(i>=0) siteLocations[i]=nn;
+      trades.forEach(t=>{ t.locations=[...new Set((t.locations||[]).map(l=>l===oldName?to:l))]; });
+      const al=loadZoneAlias(); Object.keys(al).forEach(k=>{ if(al[k]===oldName) al[k]=to; }); if(normName(oldName)!==normName(to)) al[normName(oldName)]=to; saveZoneAlias(al);   // the old name keeps pointing here
       saveLocations(); saveTrades();
     }
     renderLocations(); renderTrades();
@@ -1805,9 +1808,12 @@ async function extractWhiteboard(){
 }
 let _wbUnmatched=[];
 let _wbPendingZones=[];
+function loadZoneAlias(){ try{ return JSON.parse(localStorage.getItem("tphs_zone_alias_v1")||"{}")||{}; }catch(e){ return {}; } }
+function saveZoneAlias(a){ localStorage.setItem("tphs_zone_alias_v1",JSON.stringify(a)); }
 function matchZone(label){
   const n=normName(label); if(!n) return null;
   for(const l of siteLocations){ if(normName(l)===n) return l; }
+  const al=loadZoneAlias()[n]; if(al&&siteLocations.includes(al)) return al;   // a name confirmed before as "same as"
   return null;
 }
 function applyWhiteboard(data){
@@ -1904,6 +1910,7 @@ function wbConfirmZone(i){
     target=siteLocations.find(l=>normName(l)===tn)||typed;
   } else if(choice!=="__skip__") target=choice;
   z.done=true;
+  if(target&&normName(target)!==z.norm){ const al=loadZoneAlias(); al[z.norm]=target; saveZoneAlias(al); }   // remember it for next time
   if(target){
     z.trades.forEach(nm=>{
       const t=trades.find(x=>x.name===nm);
