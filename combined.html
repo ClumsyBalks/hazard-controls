@@ -826,12 +826,7 @@ function removeLocation(name){
   saveLocations(); saveTrades(); renderLocations(); renderTrades();
 }
 function editLocationName(el,oldName){
-  el.contentEditable="true"; el.focus();
-  const r=document.createRange(); r.selectNodeContents(el);
-  window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
-  el.onblur=()=>{
-    el.contentEditable="false";
-    const nn=el.textContent.trim();
+  inlineEdit(el,oldName,nn=>{
     if(nn && nn!==oldName){
       captureActivities();
       const i=siteLocations.indexOf(oldName), dup=siteLocations.find(l=>l!==oldName&&normName(l)===normName(nn));
@@ -842,8 +837,7 @@ function editLocationName(el,oldName){
       saveLocations(); saveTrades();
     }
     renderLocations(); renderTrades();
-  };
-  el.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); el.blur(); } };
+  });
 }
 function renderLocations(){
   const list=document.getElementById("locList");
@@ -914,24 +908,30 @@ function toggleBenchList(){
   const body=document.getElementById("benchBody"), btn=document.getElementById("benchToggle");
   const open=body.classList.toggle("open"); btn.classList.toggle("open",open);
 }
+// Rename in place with a real text box (the old in-line editing did not accept typing in every browser).
+function inlineEdit(el,oldValue,commit){
+  if(el.querySelector("input")) return;
+  const inp=document.createElement("input"); inp.type="text"; inp.value=oldValue; inp.style.cssText="width:100%;font:inherit;padding:1px 4px;border:1px solid var(--accent);border-radius:3px;background:#fff;color:var(--text);cursor:text;";
+  el.onclick=null; el.style.cursor="text"; el.style.overflow="visible"; el.textContent=""; el.appendChild(inp); inp.focus(); inp.select();
+  let done=false; const finish=ok=>{ if(done) return; done=true; commit(ok?inp.value.trim():""); };
+  inp.onclick=e=>e.stopPropagation(); inp.onblur=()=>finish(true);
+  inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); finish(true); } else if(e.key==="Escape"){ e.preventDefault(); finish(false); } };
+}
 function editSubbieName(el,oldName){
-  el.contentEditable="true"; el.focus();
-  const r=document.createRange(); r.selectNodeContents(el);
-  window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
-  el.onblur=()=>{
-    el.contentEditable="false";
-    const nn=el.textContent.trim();
-    if(nn && nn!==oldName){
+  inlineEdit(el,oldName,nn=>{
+    if(nn && nn!==oldName && !subbies.some(x=>x.name!==oldName&&x.name.toLowerCase()===nn.toLowerCase())){
+      captureActivities();
       const s=subbieByName(oldName);
-      if(s) s.name=nn;
+      if(s){ s.name=nn;
+        // The old name keeps working: it stays as the HammerTech employer name (what the Employer column copies) or as an alias, so drafts and SWMS still match.
+        if(!s.htName) s.htName=oldName; else if(normName(s.htName)!==normName(oldName)&&!(s.aliases||[]).some(a=>normName(a)===normName(oldName))) (s.aliases=s.aliases||[]).push(oldName); }
       sortSubbies();
       docs.forEach(d=>{ d.subbies=(d.subbies||[]).map(x=>x===oldName?nn:x); });
       trades.forEach(t=>{ if(t.name===oldName) t.name=nn; });
       saveSubbies(); saveDocs(); saveTrades();
     }
-    renderSubbies(); renderDocs(); renderSubbiePicker(); renderTrades();
-  };
-  el.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); el.blur(); } };
+    renderSubbies(); renderDocs(); renderSubbiePicker(); updatePickerSummary(); renderTrades();
+  });
 }
 function toggleSubbieInTrades(name,checked){
   captureActivities();
@@ -2634,12 +2634,19 @@ const DAB_TRADE={"TOWER":"#23963F","HORIZONE":"#D56A00","SCALZO":"#D32F2F","SWG"
 const DAB_EXTRA=["#5D4037","#00695C","#283593","#9E9D24","#6A1B9A","#EF6C00","#2E7D32","#AD1457","#0277BD","#4E342E"];
 const DAB_LEVELS=[["GROUND FLOOR","GF","#FF9F1C"],["LEVEL 1","L1","#2EC4B6"],["LEVEL 2","L2","#C77DFF"],["LEVEL 3","L3","#FF6B8B"]];
 const DAB_G="#002D2B", DAB_TEAL="#AFDFE3", DAB_INK="#0B1F1E", DAB_GREY="#5B6B6A";
-function dabTradeName(n){ const u=String(n).toUpperCase().trim(); if(u==="HIRED ON TIME") return "HOT"; if(/^JV RECRUIT/.test(u)) return "LIPMAN/JV"; return u; }
+function dabTradeName(n){ const u=String(n).toUpperCase().trim(); if(u==="HIRED ON TIME") return "HOT"; if(/^JV RECRUIT/.test(u)) return "LIPMAN/JV"; return u.replace(/[\s,]+(PTY\.?\s*)?(LTD|LIMITED)\.?$/,"").replace(/[\s,]+PTY\.?$/,"").trim()||u; }
 function dabColour(trade){ if(DAB_TRADE[trade]) return DAB_TRADE[trade]; const k=Object.keys(DAB_TRADE).find(t=>trade.indexOf(t)===0||t.indexOf(trade)===0); if(k) return DAB_TRADE[k];
   let h=0; for(const ch of trade) h=(h*31+ch.charCodeAt(0))>>>0; return DAB_EXTRA[h%DAB_EXTRA.length]; }
 function dabFont(b,s){ return (b?"bold ":"")+s+"px Helvetica, Arial, sans-serif"; }
 function dabWrap(x,text,b,fs,maxw){ x.font=dabFont(b,fs); const out=[]; let cur=""; String(text).split(/\s+/).forEach(w=>{ const t=(cur+" "+w).trim(); if(x.measureText(t).width<=maxw||!cur) cur=t; else{ out.push(cur); cur=w; } }); out.push(cur); return out; }
 function dabText(x,s,px,py,b,fs,col,align){ x.font=dabFont(b,fs); x.fillStyle=col; x.textAlign=align||"left"; x.textBaseline="alphabetic"; x.fillText(s,px,py); }
+// bold cell text: one line at full size if it fits, otherwise two lines (down to minTwo), otherwise shrink
+function dabCell(x,text,px,mid,maxw,rh,fmax,minTwo){
+  x.font=dabFont(true,fmax); if(x.measureText(text).width<=maxw){ dabText(x,text,px,mid+fmax*0.36,true,fmax,DAB_INK); return; }
+  for(let fs=Math.min(fmax,(rh-6)/2.3);fs>=minTwo;fs-=0.5){ const l=dabWrap(x,text,true,fs,maxw); if(l.length<=2&&l.every(v=>{ x.font=dabFont(true,fs); return x.measureText(v).width<=maxw; })){ l.forEach((v,k)=>dabText(x,v,px,mid+fs*0.36-(l.length-1)*fs*0.58+k*fs*1.16,true,fs,DAB_INK)); return; } }
+  let fs=minTwo, l=dabWrap(x,text,true,fs,maxw); while(fs>6.5&&(l.length>2||l.some(v=>{ x.font=dabFont(true,fs); return x.measureText(v).width>maxw; }))){ fs-=0.5; l=dabWrap(x,text,true,fs,maxw); }
+  l.slice(0,2).forEach((v,k)=>dabText(x,v,px,mid+fs*0.36-(Math.min(l.length,2)-1)*fs*0.58+k*fs*1.16,true,fs,DAB_INK));
+}
 function dabZones(){ return (DAB.pack&&DAB.pack.zones)||null; }
 
 // ---- work zone boxes, lines and leaders on a photo (rects: {level:{x0,y0,x1,y1}})
@@ -2729,13 +2736,13 @@ function dabRender(plan,K){
   const rh=Math.min(40,(TB-TT-24)/Math.max(rows.length,1)); let t=TT+24, prev=null;
   rows.forEach((r,n)=>{ const trade=r[0],task=r[1],ztxt=r[2]||"",col=dabColour(trade),mid=t+rh/2;
     if(trade!==prev){ if(prev!==null){ x.strokeStyle=DAB_G; x.lineWidth=1.1; x.beginPath(); x.moveTo(LX,t); x.lineTo(LX+LW,t); x.stroke(); }
-      fill(col,LX+1,t,6,rh); let fs=14; x.font=dabFont(true,fs); while(x.measureText(trade).width>cx[1]-cx[0]-20&&fs>7){ fs-=0.5; x.font=dabFont(true,fs); } dabText(x,trade,LX+14,mid+5,true,fs,DAB_INK); }
+      fill(col,LX+1,t,6,rh); dabCell(x,trade,LX+14,mid,cx[1]-cx[0]-20,rh,14,11); }
     else{ fill(col,LX+1,t,6,rh); x.strokeStyle="#C9D6D5"; x.lineWidth=0.6; x.beginPath(); x.moveTo(cx[1],t); x.lineTo(LX+LW,t); x.stroke(); }
     badge(cx[1]+16,mid,n+1,col);
     let fs=14, lines=dabWrap(x,task,false,fs,cx[3]-cx[2]-12); if(lines.length>1){ fs=12; lines=dabWrap(x,task,false,fs,cx[3]-cx[2]-12); } if(lines.length>2&&rh<34){ fs=10; lines=dabWrap(x,task,false,fs,cx[3]-cx[2]-12); }
     const sh=lines.slice(0,rh>=38?3:2); if(lines.length>sh.length) sh[sh.length-1]=sh[sh.length-1].replace(/.{0,3}$/,"…");
     sh.forEach((l,k)=>dabText(x,l,cx[2]+4,mid+fs*0.35-(sh.length-1)*fs*0.58+k*fs*1.16,false,fs,DAB_INK));
-    let fz=13.5; x.font=dabFont(true,fz); while(x.measureText(ztxt).width>cx[4]-cx[3]-12&&fz>7){ fz-=0.5; x.font=dabFont(true,fz); } dabText(x,ztxt,cx[3]+6,mid+5,true,fz,DAB_INK);
+    dabCell(x,ztxt,cx[3]+6,mid,cx[4]-cx[3]-12,rh,13.5,11);
     prev=trade; t+=rh; });
   x.strokeStyle="#C9D6D5"; x.lineWidth=0.6; [cx[1],cx[3]].forEach(vx=>{ x.beginPath(); x.moveTo(vx,TT+24); x.lineTo(vx,t); x.stroke(); });
   box(LX,HT,LW,HRW_H,"High Risk Works & Controls"); t=HT+32;
