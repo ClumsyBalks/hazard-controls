@@ -542,6 +542,15 @@
     <div class="field-label">Lookahead programme</div>
     <div class="mb-row"><div class="upload-btn-wrap mb-file"><div class="upload-btn">📎 Load programme (MS Project .xml export)</div><input type="file" accept=".xml,text/xml,application/xml,.json,application/json" onchange="onProgramFile(this)"></div></div>
     <div class="mb-status" id="progStatus">No programme loaded on this device.</div>
+  </div>
+  <div class="trade-card mb-card">
+    <div class="field-label">Foreman two-week whiteboard programme <small>(Thursdays)</small></div>
+    <div class="mb-status">Load the latest programme XML above first. You get one A3 landscape page for the foremen to copy onto the office whiteboard: each activity on its first day with an arrow to its last day, Bldg E above Bldg F, pours in yellow.</div>
+    <div class="mb-row"><label class="field-label" for="fwStart">Two weeks commencing (Monday)</label><input type="date" id="fwStart">
+      <button class="btn btn-primary" id="fwBuildBtn" onclick="fwBuild()">Build foreman whiteboard</button>
+      <a id="fwDownload" class="btn btn-ghost" style="display:none;text-decoration:none;"></a></div>
+    <div class="mb-status" id="fwStatus"></div>
+    <canvas id="fwPrev" style="display:none;width:100%;border:1px solid var(--border);border-radius:6px;margin-top:8px;"></canvas>
   </div></div>
 </main>
 </div>
@@ -2477,6 +2486,93 @@ function mbRenderBoard(S){
   return c;
 }
 // ---- minimal single-page PDF wrapping one JPEG (no library)
+// ---- Foreman two-week whiteboard programme (A3 landscape), from the loaded programme
+function fwLevel(L){ const m=/^LEVEL (\d+)/i.exec(L||""); return m?"L"+m[1]:/^GROUND/i.test(L||"")?"GF":/^ROOF/i.test(L||"")?"ROOF":""; }
+function fwActs(prog){
+  const acts={};
+  prog.buildings.forEach(b=>{ const k=b.name.slice(-1), list=acts[k]=[]; let L=null,G=null;
+    b.rows.forEach(r=>{
+      if(r[0]==="L"){ L=r[1]; G=null; return; } if(r[0]==="G"){ G=r[1]; return; } if(r[0]==="H"||!r[2]) return;
+      const name=r[1], ds=Object.keys(r[2]).sort(); if(!ds.length) return;
+      const code=r[2][ds[0]], disp=name.replace(/\s*\(\d+ Day\)|\s*-\s*BLDG [A-Z]/g,""); let kind="A", txt;
+      if(code==="O"){ const p=prog.pours.find(q=>q.date===ds[0]&&q.bldg===k&&q.activity===name); kind="P"; txt="POUR: "+(p?p.label:name.replace(/^POUR\s+/i,"").toUpperCase()).replace(/\s+/g," "); }
+      else{
+        if(/^HOLD POINT/i.test(name)) kind="H";
+        if(/^Stairs/i.test(G||"")){
+          const g=G.replace(/ and /g," & ").replace(/\s*-\s*/g,"-");
+          txt=/\d/.test(name)?name:name.replace(/Stairs?( Soffits)?$/,(m,s)=>g+(s?" Soffits":""));
+          const sp=/(GF|L\d)-L\d/.exec(g); if(sp&&txt.indexOf("GF-")<0&&!/L\d-L\d/.test(txt)) txt+=" ("+sp[0]+")";
+        } else { const lv=fwLevel(L); txt=((lv&&!(lv==="ROOF"&&/roof/i.test(disp)))?lv+" ":"")+disp; }
+        if(ds.length>1) txt+=" ("+ds.length+"d)";
+      }
+      const tr=prog.trades[code]||["","#999999"]; list.push({kind:kind,txt:txt,col:tr[1],ds:ds});
+    }); });
+  return acts;
+}
+function fwRender(prog,startISO,S){
+  const W=1190.55,H=841.89, c=document.createElement("canvas"); c.width=Math.round(W*S); c.height=Math.round(H*S);
+  const x=c.getContext("2d"); x.scale(S,S); x.fillStyle="#fff"; x.fillRect(0,0,W,H); x.textBaseline="alphabetic";
+  const F=(sz,b,i)=>{ x.font=(i?"italic ":"")+(b?"bold ":"")+sz+"px Helvetica, Arial, sans-serif"; }, tw=t=>x.measureText(t).width;
+  const start=mbDate(startISO), weeks=[mbAdd(start,7),start], acts=fwActs(prog), blds=Object.keys(acts).sort();
+  const plan={}; let maxl=1;
+  weeks.forEach((w,wi)=>{ let tot=0; blds.forEach(k=>{
+    const w0=mbISO(w), w5=mbISO(mbAdd(w,5)), segs=[];
+    acts[k].forEach((a,order)=>{ const inw=a.ds.filter(d=>d>=w0&&d<=w5); if(!inw.length) return;
+      const di=d=>Math.round((mbDate(d)-w)/86400000);
+      segs.push({a:di(inw[0]),z:di(inw[inw.length-1]),kind:a.kind,col:a.col,order:order,txt:(inw[0]!==a.ds[0]?"cont: ":"")+a.txt,more:inw[inw.length-1]!==a.ds[a.ds.length-1]}); });
+    segs.sort((p,q)=>p.a-q.a||p.order-q.order); const lanes=[];
+    segs.forEach(s=>{ let i=lanes.findIndex(e=>e<s.a); if(i<0){ i=lanes.length; lanes.push(s.z); } else lanes[i]=s.z; s.lane=i; });
+    plan[wi+k]={segs:segs,n:Math.max(lanes.length,1)}; tot+=Math.max(lanes.length,1); }); maxl=Math.max(maxl,tot); });
+  const m=24, end=mbAdd(start,12), dmy=d=>String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
+  x.fillStyle="#000"; F(20,true); x.fillText("TPHS M3   FOREMAN WHITEBOARD PROGRAM",m,m+18);
+  { const sub="Two weeks commencing Mon "+dmy(start)+" (to Sat "+dmy(end)+").  Source: "+prog.source+(prog._saved?", saved "+dmy(mbDate(prog._saved.slice(0,10)))+" "+prog._saved.slice(11,16):"")+".  Activity is written on its first day; the arrow runs to the end of its last day."; let fz=11; F(fz); while(tw(sub)>W-2*m&&fz>7){ fz-=0.5; F(fz); } x.fillText(sub,m,m+34); }
+  const used={}; Object.keys(plan).forEach(k=>plan[k].segs.forEach(s=>used[s.col]=1));
+  let lx=W-m; F(9); Object.keys(prog.trades).reverse().forEach(code=>{ const t=prog.trades[code]; if(!used[t[1]]) return;
+    lx-=tw(t[0]); x.fillStyle="#000"; x.fillText(t[0],lx,m+14); lx-=14; x.fillStyle=t[1]; x.fillRect(lx,m+6,10,10); x.strokeStyle="#000"; x.lineWidth=0.6; x.strokeRect(lx,m+6,10,10); lx-=14; });
+  const gy0=m+44, rh=(H-m-gy0)/2, cw=(W-2*m)/6, hd=26, hb=17, nb=blds.length;
+  const lane=Math.min(40,(rh-hd-nb*hb-8)/maxl), size=Math.min(13.5,(lane-5)/2/1.12);
+  const wrap=(t,sz,b,width)=>{ F(sz,b); const out=[]; let cur=""; t.split(" ").forEach(wd=>{ const n=(cur+" "+wd).trim(); if(tw(n)<=width||!cur) cur=n; else{ out.push(cur); cur=wd; } }); out.push(cur); return out; };
+  const DN=["SUN","MON","TUE","WED","THU","FRI","SAT"];
+  weeks.forEach((w,wi)=>{ const y1=gy0+wi*rh;
+    for(let i=0;i<6;i++){ const d=mbAdd(w,i), x0=m+i*cw; x.fillStyle="#1F2A3D"; x.fillRect(x0,y1,cw,hd); x.fillStyle="#fff"; F(15,true); x.fillText(DN[d.getDay()]+"  "+d.getDate()+"/"+String(d.getMonth()+1).padStart(2,"0"),x0+8,y1+hd-8); }
+    let y=y1+hd; const tot=blds.reduce((n,k)=>n+plan[wi+k].n,0), spare=rh-hd-nb*hb-tot*lane;
+    blds.forEach(k=>{ const P=plan[wi+k];
+      x.fillStyle="#DCE3ED"; x.fillRect(m,y,W-2*m,hb); x.fillStyle="#000"; F(11,true); for(let i=0;i<6;i++) x.fillText("BLDG "+k,m+i*cw+6,y+hb-5); y+=hb;
+      P.segs.forEach(s=>{ const ly=y+s.lane*lane, x0=m+s.a*cw, bold=s.kind!=="A"; let fs=size, ls=wrap(s.txt,fs,bold,cw-24);
+        while(ls.length>2&&fs>6){ fs-=0.5; ls=wrap(s.txt,fs,bold,cw-24); }
+        const th=ls.length*fs*1.12, ty=ly+(lane-th)/2;
+        if(s.kind==="P"){ x.fillStyle="#FFFF00"; x.fillRect(x0+3,ly+2,cw-6,lane-4); }
+        x.fillStyle=s.col; x.fillRect(x0+6,ty+fs*0.23,fs*0.62,fs*0.62); x.strokeStyle="#000"; x.lineWidth=0.5; x.strokeRect(x0+6,ty+fs*0.23,fs*0.62,fs*0.62);
+        x.fillStyle="#000"; F(fs,bold); let mw=0; ls.forEach((l,j)=>{ x.fillText(l,x0+18,ty+fs*0.85+j*fs*1.12); mw=Math.max(mw,tw(l)); });
+        if(s.z>s.a){ const lw=tw(ls[ls.length-1]), ax0=(ls.length>1||lw>cw-60)?Math.max(x0+18+mw+6,x0+cw-2):x0+18+lw+8, ax1=m+(s.z+1)*cw-5, ay=ly+lane/2;
+          x.lineCap="butt"; x.strokeStyle="#000"; x.lineWidth=6; x.beginPath(); x.moveTo(ax0,ay); x.lineTo(ax1-9,ay); x.stroke();
+          x.strokeStyle=s.col; x.lineWidth=4.4; x.beginPath(); x.moveTo(ax0+0.8,ay); x.lineTo(ax1-9,ay); x.stroke();
+          x.beginPath(); x.moveTo(ax1,ay); x.lineTo(ax1-13,ay-8); x.lineTo(ax1-13,ay+8); x.closePath(); x.fillStyle=s.col; x.fill(); x.strokeStyle="#000"; x.lineWidth=0.8; x.stroke(); }
+        if(s.more){ F(7.5,false,true); x.fillStyle="#404040"; const t="continues next week"; x.fillText(t,m+(s.z+1)*cw-6-tw(t),ly+lane-3); }
+      });
+      y+=P.n*lane+spare/nb; });
+    x.strokeStyle="#737373"; x.lineWidth=0.6; x.setLineDash([3,3]); for(let i=1;i<6;i++){ x.beginPath(); x.moveTo(m+i*cw,y1+hd); x.lineTo(m+i*cw,y1+rh); x.stroke(); } x.setLineDash([]);
+    x.strokeStyle="#000"; x.lineWidth=1.5; x.strokeRect(m,y1,W-2*m,rh); });
+  return c;
+}
+let FW_URL=null;
+function fwDefaultStart(){ const d=new Date(); d.setHours(12,0,0,0); const add=((8-d.getDay())%7)||7; return mbISO(mbAdd(d,add)); }
+async function fwBuild(){
+  const st=document.getElementById("fwStatus"), prog=loadProgram(); let v=document.getElementById("fwStart").value;
+  if(!prog){ st.style.color="#B3261E"; st.textContent="Load the programme XML above first."; return; }
+  if(!v){ st.style.color="#B3261E"; st.textContent="Choose the Monday the two weeks start on."; return; }
+  const d0=mbDate(v); if(d0.getDay()!==1){ v=mbISO(mbAdd(d0,-((d0.getDay()+6)%7))); document.getElementById("fwStart").value=v; }
+  const last=mbISO(mbAdd(mbDate(v),12)), pEnd=mbISO(mbAdd(mbDate(prog.start),prog.days-1));
+  if(v<prog.start||last>pEnd){ st.style.color="#B3261E"; st.textContent="The loaded programme covers "+fmtDMY(prog.start)+" to "+fmtDMY(pEnd)+", which does not include all of these two weeks. Load the current XML export first."; return; }
+  st.style.color="var(--text2)"; st.textContent="Building…"; await new Promise(r=>setTimeout(r,30));
+  try{ const c=fwRender(prog,v,3), blob=await new Promise(r=>c.toBlob(r,"image/jpeg",0.93)), jpg=new Uint8Array(await blob.arrayBuffer());
+    const name="TPHS M3 Foreman Whiteboard Program "+v.replace(/-/g,"")+".pdf", pdf=pdfFromJpeg(jpg,c.width,c.height,1190.55,841.89,name.replace(".pdf",""));
+    if(FW_URL) URL.revokeObjectURL(FW_URL); FW_URL=URL.createObjectURL(pdf);
+    const a=document.getElementById("fwDownload"); a.href=FW_URL; a.download=name; a.textContent="⬇ Download "+name; a.style.display="inline-flex";
+    const pv=document.getElementById("fwPrev"); pv.width=1190; pv.height=842; pv.getContext("2d").drawImage(c,0,0,1190,842); pv.style.display="block";
+    st.style.color="var(--success)"; st.textContent="Built from "+prog.source+". One A3 landscape page.";
+  }catch(e){ st.style.color="#B3261E"; st.textContent="Could not build it: "+e.message; }
+}
 function pdfFromJpeg(jpg,pxW,pxH,pageW,pageH,title){
   const enc=new TextEncoder(), parts=[], offs=[]; let len=0;
   const push=b=>{ const u=typeof b==="string"?enc.encode(b):b; parts.push(u); len+=u.length; };
@@ -2566,7 +2662,8 @@ function renderNeeds(){
   ],"Hold point: review each card, then copy Activity, Controls, Zones and Employer into HammerTech.");
   document.getElementById("needSetup").innerHTML=needHtml("Setup: only when something changes","Nothing here is needed day to day.",[
     ["info","Subcontractors, zones, SWMS documents and the GitHub sync are in the sidebar, as before."],
-    [prog?"ok":"todo", prog?("Lookahead programme loaded: "+escH(prog.source)+" <small>(reload only when it is revised)</small>"):"Lookahead programme: load the file Claude supplies. It stays on this device until replaced."],
+    [prog?"ok":"todo", prog?("Lookahead programme loaded: "+escH(prog.source)+" <small>(reload only when it is revised)</small>"):"Programme: load the MS Project XML export. It stays on this device until replaced."],
+    ["info","Thursdays: load the latest programme XML, then build the foreman two-week whiteboard below."],
     ["info","The photo zone map will be loaded here once the Daily Activities Board is built in."]
   ],"");
 }
@@ -2643,6 +2740,7 @@ function renderNeeds(){
     showStep(s);
     const sd=document.getElementById("siteDate"); if(sd) sd.addEventListener("change",renderNeeds);
     try{ document.getElementById("wxText").value=wxCurrent(); }catch(e){}
+    try{ document.getElementById("fwStart").value=fwDefaultStart(); }catch(e){}
     document.getElementById("tradesList").addEventListener("input",ev=>{ if(ev.target&&ev.target.tagName==="TEXTAREA"){ captureActivities(); saveTrades(); renderNeeds(); } });
   });
 })();
