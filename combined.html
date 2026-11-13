@@ -529,7 +529,7 @@
   <div class="step-panel" id="stepSetup"><div class="need-strip" id="needSetup"></div>
   <div class="trade-card mb-card">
     <div class="field-label">Lookahead programme</div>
-    <div class="mb-row"><div class="upload-btn-wrap mb-file"><div class="upload-btn">📎 Load programme file (.json from Claude)</div><input type="file" accept=".json,application/json" onchange="onProgramFile(this)"></div></div>
+    <div class="mb-row"><div class="upload-btn-wrap mb-file"><div class="upload-btn">📎 Load programme (MS Project .xml export)</div><input type="file" accept=".xml,text/xml,application/xml,.json,application/json" onchange="onProgramFile(this)"></div></div>
     <div class="mb-status" id="progStatus">No programme loaded on this device.</div>
   </div></div>
 </main>
@@ -2134,15 +2134,107 @@ function mbLong(d){ return MB_DAYL[d.getDay()]+" "+String(d.getDate()).padStart(
 function loadProgram(){ try{ return JSON.parse(localStorage.getItem("tphs_program_v1")||"null"); }catch(e){ return null; } }
 
 // ---- programme file (Setup tab)
+// ---- programme straight from the MS Project XML export (no API call)
+const PX_TRADES={F:["FORMWORK","#00B050"],S:["STEELFIXER","#FF8C00"],P:["POST TENSION","#B4A7D6"],C:["SCAFFOLD","#00B0F0"],O:["CONCRETER/POUR","#FFFF00"],E:["SURVEY/ENG","#FF00FF"]};
+const PX_EXTRA=["#4FC3F7","#E57373","#81C784","#BA68C8","#FFD54F","#A1887F","#4DB6AC","#F06292","#9FA8DA","#DCE775","#90A4AE","#FFB74D"];
+function pxTag(b,t){ const m=new RegExp("<"+t+">([^<]*)</"+t+">").exec(b); return m?m[1].replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").trim():""; }
+function pxBlocks(s,outer,inner){ const a=s.indexOf("<"+outer+">"), z=s.indexOf("</"+outer+">",a); if(a<0||z<0) return [];
+  return s.slice(a,z).split("<"+inner+">").slice(1); }
+function pxISO(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function pxDate(s){ return new Date(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10)); }
+function pxPourLabel(name,level){
+  const m=/LEVEL (\d+)/i.exec(level||""), low=name.toLowerCase(), bare=name.replace(/^POUR\s+/i,"").toUpperCase();
+  if(!m) return (/roof/i.test(level||"")&&low.indexOf("roof")<0)?bare+" TO ROOF":bare;
+  const n=+m[1], sh=k=>k===0?"GF":"L"+k, span=sh(n-1)+" TO "+sh(n);
+  if(low.indexOf("slab")>=0) return "LEVEL "+n+" SLAB";
+  if(low.indexOf("stair")>=0) return bare.replace(/ AND /g," & ")+"  "+span;
+  if(low.indexOf("wall")>=0||low.indexOf("column")>=0) return "WALLS & COLUMNS  "+span;
+  return bare+"  "+span;
+}
+function programFromXml(text,fileName,today){
+  if(text.indexOf("<Project")<0||text.indexOf("<Tasks>")<0) throw new Error("This is not a Microsoft Project XML export.");
+  today=today||new Date();
+  const head=text.slice(0,text.indexOf("<Tasks>"));
+  // the custom field that carries the building letter (alias "Building")
+  let bField=""; pxBlocks(text,"ExtendedAttributes","ExtendedAttribute").forEach(b=>{ if(/^building$/i.test(pxTag(b,"Alias"))) bField=pxTag(b,"FieldID"); });
+  if(!bField) throw new Error("The programme has no 'Building' text field, so activities cannot be split by building.");
+  // non-working dates from the project calendar
+  const off={}, calUid=pxTag(head.slice(0,head.indexOf("<Calendars>")>0?head.indexOf("<Calendars>"):head.length),"CalendarUID");
+  pxBlocks(text,"Calendars","Calendar").forEach(c=>{ if(pxTag(c,"UID")!==calUid) return;
+    c.split("<Exception>").slice(1).forEach(e=>{ if(pxTag(e,"DayWorking")!=="0") return; const f=pxTag(e,"FromDate"), t=pxTag(e,"ToDate"); if(!f||!t) return;
+      for(let d=pxDate(f), z=pxDate(t), n=0; d<=z&&n<400; d.setDate(d.getDate()+1), n++) off[pxISO(d)]=1; }); });
+  const res={}; pxBlocks(text,"Resources","Resource").forEach(r=>{ res[pxTag(r,"UID")]=pxTag(r,"Name"); });
+  const asg={}; pxBlocks(text,"Assignments","Assignment").forEach(a=>{ const h=a.slice(0,400), t=pxTag(h,"TaskUID"), n=res[pxTag(h,"ResourceUID")]; if(n) (asg[t]=asg[t]||[]).push(n); });
+  const bRe=new RegExp("<FieldID>"+bField+"</FieldID>\\s*<Value>([^<]*)</Value>");
+  const T=pxBlocks(text,"Tasks","Task").map(b=>{ const cut=b.search(/<(PredecessorLink|ExtendedAttribute|Baseline|TimephasedData)>/), h=cut<0?b:b.slice(0,cut), m=bRe.exec(b);
+    return {uid:pxTag(h,"UID"),name:pxTag(h,"Name").replace(/\s+/g," "),lv:+pxTag(h,"OutlineLevel")||0,sum:pxTag(h,"Summary")==="1",start:pxTag(h,"Start"),finish:pxTag(h,"Finish"),
+      dur:(/PT(\d+)H/.exec(pxTag(h,"Duration"))||[0,0])[1]/8,bld:m?m[1].trim():"",active:pxTag(h,"Active")!=="0"}; }).filter(t=>t.name);
+  // window: Monday of this week, six weeks
+  const start=new Date(today.getFullYear(),today.getMonth(),today.getDate()); start.setDate(start.getDate()-((start.getDay()+6)%7));
+  const DAYS=42, endD=new Date(start); endD.setDate(endD.getDate()+DAYS-1); const A=pxISO(start), Z=pxISO(endD);
+  const isLevel=n=>/^(GROUND FLOOR|LEVEL \d+|ROOF\b)/i.test(n);
+  // parents, and which summaries hold only other summaries
+  const stack=[]; T.forEach((t,i)=>{ while(stack.length&&T[stack[stack.length-1]].lv>=t.lv) stack.pop(); t.parent=stack.length?stack[stack.length-1]:-1; t.i=i; if(t.sum){ t.plain=0; stack.push(i); } else if(t.parent>=0) T[t.parent].plain++; });
+  // a summary inside a group that is followed by more plain tasks of the same group is a sub-header (H)
+  T.forEach((t,i)=>{ if(!t.sum) return; let j=i+1; while(j<T.length&&T[j].lv>t.lv) j++;
+    const p=t.parent>=0?T[t.parent]:null;
+    t.kind=isLevel(t.name)||t.plain===0?"L":(p&&!isLevel(p.name)&&p.plain>0&&j<T.length&&!T[j].sum&&T[j].lv===t.lv)?"H":"G"; });
+  const tradeOf=(t)=>{ if(/^HOLD POINT/i.test(t.name)) return "E"; if(/^POUR\b/i.test(t.name)) return "O";
+    const r=(asg[t.uid]||[]).join(" ").toLowerCase();
+    if(/formwork/.test(r)) return "F"; if(/steelfix/.test(r)) return "S"; if(/post.?tension/.test(r)) return "P"; if(/scaffold/.test(r)) return "C"; if(/concret/.test(r)) return "O";
+    if(/survey|engineer|lipman/.test(r)) return "E"; return (asg[t.uid]||[])[0]||"Other"; };
+  const daysOf=(t)=>{ const s=pxDate(t.start), f=pxDate(t.finish), out=[];
+    if(t.dur<=0||pxISO(s)===pxISO(f)) return [pxISO(f)];
+    const all=[]; for(let d=new Date(s), n=0; d<=f&&n<800; d.setDate(d.getDate()+1), n++) all.push([pxISO(d),d.getDay()]);
+    let pick=all.filter(d=>d[1]>=1&&d[1]<=5&&!off[d[0]]); const need=Math.round(t.dur);
+    if(pick.length<need) pick=all.filter(d=>d[1]>=1&&d[1]<=6&&!off[d[0]]);
+    if(pick.length<need) pick=all.filter(d=>d[1]!==0||!off[d[0]]);
+    if(pick.length<need) pick=all;
+    return pick.map(d=>d[0]); };
+  const B={}, trades={}, extra={}, pours=[]; const skipped=[]; let onsite=T.findIndex(t=>t.sum&&/^ONSITE WORKS/i.test(t.name));
+  const under=(t,root)=>{ for(let p=t.parent;p>=0;p=T[p].parent) if(p===root) return true; return false; };
+  T.forEach(t=>{ if(t.sum||!t.active||!t.start||!t.finish) return;
+    if(t.finish.slice(0,10)<A||t.start.slice(0,10)>Z) return;
+    if(onsite>=0&&!under(t,onsite)) return;
+    // group/level from the nearest headings; the group's own building tag wins over the task's
+    let h=null,gI=-1,lI=-1; let p=t.parent; if(p>=0&&T[p].kind==="H"){ h=T[p]; p=T[p].parent; }
+    if(p>=0&&T[p].kind==="G"){ gI=p; p=T[p].parent; }
+    while(p>=0&&T[p].kind!=="L"&&!(T[p].parent>=0&&!isLevel(T[T[p].parent].name))){ p=T[p].parent; } lI=p;
+    let bld=(gI>=0&&/^[A-Z]$/.test(T[gI].bld))?T[gI].bld:t.bld;
+    if(!/^[A-Z]$/.test(bld)){ skipped.push(t.name); return; }
+    if(gI<0&&lI>=0){ for(let j=t.i-1;j>lI;j--) if(T[j].kind==="G"&&T[j].parent===lI&&T[j].bld===bld){ gI=j; break; } }
+    let code=tradeOf(t); if(!PX_TRADES[code]){ if(!extra[code]) extra[code]="X"+(Object.keys(extra).length+1); code=extra[code]; }
+    const bars={}; daysOf(t).forEach(d=>{ if(d>=A&&d<=Z) bars[d]=code; }); if(!Object.keys(bars).length) return;
+    trades[code]=1;
+    const b=B[bld]=B[bld]||{rows:[],L:-2,G:-2,H:-2};
+    if(b.L!==lI){ if(lI>=0) b.rows.push(["L",T[lI].name]); b.L=lI; b.G=-2; b.H=-2; }
+    if(b.G!==gI){ if(gI>=0) b.rows.push(["G",T[gI].name]); b.G=gI; b.H=-2; }
+    const hI=h?h.i:-1; if(hI>=0&&b.H!==hI) b.rows.push(["H",h.name]); b.H=hI;
+    b.rows.push([h?"B":"A",t.name,bars]);
+    const lvl=lI>=0?T[lI].name:"";
+    Object.keys(bars).forEach(d=>{ if(bars[d]==="O") pours.push({date:d,bldg:bld,label:pxPourLabel(t.name,lvl),activity:t.name,level:lvl}); });
+  });
+  const tr={}; Object.keys(PX_TRADES).forEach(k=>{ if(trades[k]) tr[k]=PX_TRADES[k]; });
+  Object.keys(extra).forEach((n,i)=>{ if(trades[extra[n]]) tr[extra[n]]=[n.toUpperCase(),PX_EXTRA[i%PX_EXTRA.length]]; });
+  const blds=Object.keys(B).sort().map(k=>({name:"BUILDING "+k,rows:B[k].rows}));
+  if(!blds.length) throw new Error("No activities tagged to a single building were found between "+A+" and "+Z+".");
+  pours.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.bldg<b.bldg?-1:1);
+  const src=(fileName||pxTag(head,"Name")||"Programme").replace(/\.xml$/i,"").replace(/_/g," ").replace(/^\d{8}\s+/,"");
+  const rev=/Rev\s*\d+/i.exec(src);
+  return {source:src,short:rev?"Programme "+rev[0]:"",start:A,days:DAYS,trades:tr,buildings:blds,pours:pours,_skipped:skipped,_saved:pxTag(head,"LastSaved")};
+}
+
 function onProgramFile(inp){
   const f=inp.files&&inp.files[0]; if(!f) return;
   const r=new FileReader();
   r.onload=()=>{ const st=document.getElementById("progStatus");
-    try{ const p=JSON.parse(r.result);
-      if(!p||!Array.isArray(p.buildings)||!Array.isArray(p.pours)||!p.start||!p.trades) throw new Error("This is not a lookahead programme file.");
+    try{ const isXml=/\.xml$/i.test(f.name)||/^\s*(\uFEFF)?<\?xml|^\s*<Project/.test(String(r.result).slice(0,200));
+      const p=isXml?programFromXml(String(r.result).replace(/^\uFEFF/,""),f.name):JSON.parse(r.result);
+      if(!p||!Array.isArray(p.buildings)||!Array.isArray(p.pours)||!p.start||!p.trades) throw new Error("This is not a programme file.");
       p._loaded=new Date().toISOString(); p._file=f.name;
       localStorage.setItem("tphs_program_v1",JSON.stringify(p));
-      st.textContent="Loaded: "+p.source; st.style.color="var(--success)";
+      const nb=p.buildings.reduce((n,x)=>n+x.rows.filter(q=>q[2]).length,0);
+      st.textContent="Loaded: "+p.source+(isXml?" ("+nb+" activities and "+p.pours.length+" pours from "+mbShort(mbDate(p.start))+" for six weeks"+(p._skipped&&p._skipped.length?"; "+p._skipped.length+" not tagged to one building left out":"")+")":""); st.style.color="var(--success)";
     }catch(e){ st.textContent="Could not load: "+e.message; st.style.color="#B3261E"; }
     renderNeeds(); };
   r.readAsText(f);
@@ -2265,7 +2357,8 @@ function mbProgramme(g,prog,today,x,y,w,h){
   mbPanel(g,x,y,w,h,"PROGRAMME: NEXT 7 DAYS");
   if(!days.length){ g.text("The loaded lookahead ended "+mbShort(end)+". Load the current lookahead in Setup.",x+14,y+h-70,false,18,"#FF9F43"); return; }
   g.text("Source: "+prog.source+"  ·  showing "+mbShort(days[0])+" to "+mbShort(days[days.length-1]),x+14,y+10,false,12,MBC.MUTED);
-  const tr=prog.trades, keys=Object.keys(tr);
+  const tr=prog.trades, isoL=days.map(mbISO), usedT={}; prog.buildings.forEach(b=>b.rows.forEach(r=>{ if(r[2]) isoL.forEach(d=>{ if(r[2][d]) usedT[r[2][d]]=1; }); }));
+  const keys=Object.keys(tr).filter(k=>usedT[k]||/^[FSPCOE]$/.test(k));
   let lx=x+w-14-keys.reduce((a,k)=>a+36+g.tw(tr[k][0],false,12),0)+13;
   keys.forEach(k=>{ g.rect(lx,y+h-32,18,16,tr[k][1]); g.text(tr[k][0],lx+23,y+h-28,false,12,MBC.TXT); lx+=36+g.tw(tr[k][0],false,12); });
   const nb=prog.buildings.length, gap=14, bw=(w-28-gap*(nb-1))/nb, top=y+h-46, iso=days.map(mbISO);
@@ -2297,7 +2390,7 @@ function mbProgramme(g,prog,today,x,y,w,h){
 }
 function mbPours(g,prog,today,x,y,w,h){
   const last=mbAdd(today,14), end=mbAdd(mbDate(prog.start),prog.days-1);
-  mbPanel(g,x,y,w,h,"CONCRETE POURS: NEXT 2 WEEKS","From "+prog.source.split(" (")[0].replace("TPHS M3 ",""));
+  mbPanel(g,x,y,w,h,"CONCRETE POURS: NEXT 2 WEEKS","From "+(prog.short||prog.source.split(" (")[0].replace("TPHS M3 ","")));
   const all=prog.pours.map(p=>[mbDate(p.date),p]).sort((a,b)=>a[0]-b[0]);
   const cur=all.filter(p=>p[0]>=mbDate(mbISO(today))&&p[0]<=last), nxt=all.filter(p=>p[0]>last).slice(0,3), short=end<last;
   const top=y+h-46, foot=(nxt.length||short)?34:8, rh=Math.min(74,(top-y-foot)/Math.max(cur.length,1));
