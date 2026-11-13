@@ -93,6 +93,21 @@ it as `combined.html` in this repo on `main`, alongside the live app — same
 origin, shared localStorage. `hazard-controls.html` is untouched by that build;
 at cutover `combined.html` replaces it.
 
+State of combined.html at 14/11/2026 (staging, not yet cut over):
+- Step 1 meeting board; step 2 reads the draft (cards in draft order, optional
+  forecast screenshot/text fed into control generation); step 3 review with
+  confirm items at the top, then the Daily Activities Board and 6-page A3 print
+  pack (one extra API call maps tasks to photo zones and picks the high risk
+  works). Setup: programme from the MS Project XML export, site pack, foreman
+  two-week whiteboard.
+- Extra browser state used only by combined.html: localStorage `tphs_day_v1`,
+  `tphs_program_v1`, `tphs_align_v1`, `tphs_zone_alias_v1`, `tphs_sitepack_v1`
+  (photo zone map + logo, supplied as a file, never committed); IndexedDB
+  `tphs_files` key `dab_photo` (aligned drone photo). Extraction JSON gained an
+  optional `permits` string.
+- Programme files, drone photos, the zone map and the logo are kept out of this
+  public repo.
+
 Rules for maintenance work on hazard-controls.html while the build runs:
 - Always pull latest `main` before editing; NEVER edit `combined.html` from
   maintenance chats.

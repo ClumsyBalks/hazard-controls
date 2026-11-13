@@ -528,6 +528,15 @@
   <div class="step-panel" id="step3"><div class="need-strip" id="need3"></div>
   <div id="reviewTop" style="display:none;margin-bottom:12px;"></div>
   <div class="trades-list" id="tradesList"></div>
+  <div class="trade-card mb-card" id="dabCard">
+    <div class="field-label">Daily Activities Board and A3 whiteboard print pack</div>
+    <div class="mb-status" id="dabNeeds"></div>
+    <div class="mb-row" style="margin-top:8px;"><button class="btn btn-primary" id="dabBuildBtn" onclick="dabBuild(false)">Build board and print pack</button>
+      <button class="btn btn-ghost btn-sm" onclick="dabBuild(true)" title="Ask again which zones and high risk works to show">Redo zones and high risk works</button>
+      <a id="dabDl1" class="btn btn-ghost" style="display:none;text-decoration:none;"></a><a id="dabDl2" class="btn btn-ghost" style="display:none;text-decoration:none;"></a></div>
+    <div class="mb-status" id="dabStatus"></div>
+    <canvas id="dabPrev" style="display:none;width:100%;border:1px solid var(--border);border-radius:6px;margin-top:8px;"></canvas>
+  </div>
   <div class="bottom-bar">
     <button class="btn btn-primary" id="btnAll" onclick="generateAll()">⚡ Generate all</button>
     <button class="btn btn-ghost" onclick="clearAll()">Clear results</button>
@@ -542,6 +551,12 @@
     <div class="field-label">Lookahead programme</div>
     <div class="mb-row"><div class="upload-btn-wrap mb-file"><div class="upload-btn">📎 Load programme (MS Project .xml export)</div><input type="file" accept=".xml,text/xml,application/xml,.json,application/json" onchange="onProgramFile(this)"></div></div>
     <div class="mb-status" id="progStatus">No programme loaded on this device.</div>
+  </div>
+  <div class="trade-card mb-card">
+    <div class="field-label">Site pack <small>(photo zone map and logo)</small></div>
+    <div class="mb-status">Needed for the Daily Activities Board. Claude supplies this file whenever the Bluebeam zone layout changes. It stays on this device.</div>
+    <div class="mb-row"><div class="upload-btn-wrap mb-file"><div class="upload-btn">📎 Load site pack (.json)</div><input type="file" accept=".json,application/json" onchange="onSitePack(this)"></div></div>
+    <div class="mb-status" id="packStatus"></div>
   </div>
   <div class="trade-card mb-card">
     <div class="field-label">Foreman two-week whiteboard programme <small>(Thursdays)</small></div>
@@ -1678,12 +1693,12 @@ function wbShowStatus(html){
 function buildDraftPrompt(){
   return "This is the typed draft of the Lipman 1pm site coordination meeting at The Ponds High School, covering the FOLLOWING day's works. "
   +"IMPORTANT: this document is cloned from the previous day's meeting document — ONLY the per-contractor work activities and the deliveries are updated each day. Everything else (prestart compliance tables, attendee lists, programme/lookahead, concrete pour schedules, standing notes, drone photos) may be stale carry-over: IGNORE those panels entirely. "
-  +"Extract: each contractor's planned work activities, the deliveries, the works/meeting date if the document states one, and weather if present. "
+  +"Extract: each contractor's planned work activities, the deliveries, the works/meeting date if the document states one, weather if present, and the work permits listed under the toolbox prompts ('List any work permits in place today and area locations'), copied exactly as written (empty string if none are listed). "
   +"Accuracy rules: keep activity wording verbatim from the draft — do not paraphrase or tidy it. Classify tasks by the work the trade is physically doing, not its downstream purpose — 'preparing/building a piling platform', 'cut/fill', 'importing DGB/fill' are earthworks tasks, NOT piling; 'trenching for services' is excavation. If an entry looks like leftover text from the previous day, or is ambiguous, put it in 'uncertain' instead of guessing. "
   +"Zones: from each activity's wording, extract WHERE the trade is working (building, level, gate or area). Where it clearly corresponds to an entry in the app's current zone list, use that entry exactly: "+JSON.stringify(siteLocations)+". Where the draft names a location not in that list, still return it, as a short tidy label in the form 'Building E - Level 1' (building or area first, then level if given) — the app will ask the user to confirm new zones, so do not omit or force-fit them. Only leave 'zones' empty when the activity gives no location at all. "
   +"Order: list the contractors in 'trades' in exactly the order they first appear in the source, top to bottom. Do not sort or group them. "
   +"Return STRICT JSON only, no markdown, no code fences, exactly this shape: "
-  +'{"date":"YYYY-MM-DD","weather":"...","deliveries":"...","trades":[{"subcontractor":"name as written","tasks":["..."],"zones":["..."]}],"uncertain":["..."]}';
+  +'{"date":"YYYY-MM-DD","weather":"...","deliveries":"...","permits":"...","trades":[{"subcontractor":"name as written","tasks":["..."],"zones":["..."]}],"uncertain":["..."]}';
 }
 function buildWhiteboardPrompt(){
   return "This is a photo of the Lipman Daily Activities Board at The Ponds High School. "
@@ -1695,7 +1710,7 @@ function buildWhiteboardPrompt(){
   +"Zones: where a written zone or plan marking clearly corresponds to an entry in the app's current zone list, use that entry exactly: "+JSON.stringify(siteLocations)+". Where the board names a location not in that list, still return it as a short tidy label in the form 'Building E - Level 1' — the app will ask the user to confirm new zones. Only leave 'zones' empty when no location is given. "
   +"Order: list the contractors in 'trades' in exactly the order they first appear in the source, top to bottom. Do not sort or group them. "
   +"Return STRICT JSON only, no markdown, no code fences, exactly this shape: "
-  +'{"date":"YYYY-MM-DD","weather":"...","deliveries":"...","trades":[{"subcontractor":"name as written","tasks":["..."],"zones":["..."]}],"uncertain":["..."]}';
+  +'{"date":"YYYY-MM-DD","weather":"...","deliveries":"...","permits":"...","trades":[{"subcontractor":"name as written","tasks":["..."],"zones":["..."]}],"uncertain":["..."]}';
 }
 function normName(s){ return String(s).toLowerCase().replace(/[^a-z0-9]/g,""); }
 function subbieCandidates(s){
@@ -2331,7 +2346,7 @@ function mbWarp(){
   const c=document.createElement("canvas"); c.width=OW; c.height=OH; const x=c.getContext("2d");
   x.fillStyle="#0B1220"; x.fillRect(0,0,OW,OH); x.imageSmoothingQuality="high";
   x.setTransform(k*ar,k*ai,-k*ai,k*ar,k*bx,k*by); x.drawImage(MB.img,0,0); x.setTransform(1,0,0,1,0,0);
-  MB.aligned=c; MB.alignInfo={scale:Math.hypot(ar,ai),rot:Math.atan2(ai,ar)*180/Math.PI};
+  MB.aligned=c; setTimeout(dabSavePhoto,50); MB.alignInfo={scale:Math.hypot(ar,ai),rot:Math.atan2(ai,ar)*180/Math.PI};
   prev.width=1300; prev.height=Math.round(1300*OH/OW); prev.style.display="block";
   const px=prev.getContext("2d"); px.drawImage(c,0,0,prev.width,prev.height);
   px.strokeStyle="#00E676"; px.lineWidth=3;
@@ -2432,7 +2447,7 @@ function mbProgramme(g,prog,today,x,y,w,h){
     for(let di=0;di<=days.length;di++) g.line(bx+namew+di*cw,ry,bx+namew+di*cw,ty-2*rh,MBC.LINE,0.5);
   });
 }
-function mbPours(g,prog,today,x,y,w,h){
+function mbPours(g,prog,today,x,y,w,h,showWhen){
   const last=mbAdd(today,14), end=mbAdd(mbDate(prog.start),prog.days-1);
   mbPanel(g,x,y,w,h,"CONCRETE POURS: NEXT 2 WEEKS","From "+(prog.short||prog.source.split(" (")[0].replace("TPHS M3 ","")));
   const all=prog.pours.map(p=>[mbDate(p.date),p]).sort((a,b)=>a[0]-b[0]);
@@ -2442,7 +2457,7 @@ function mbPours(g,prog,today,x,y,w,h){
   cur.forEach(([d,p])=>{ ry-=rh; const n=Math.round((d-mbDate(mbISO(today)))/86400000);
     g.rrect(x+14,ry+6,150,rh-12,5,"#FFFF00"); const ds=mbShort(d).toUpperCase();
     g.text(ds,x+89,ry+rh/2+1,true,g.fit(ds,true,24,138),"#0B1220","center");
-    g.text(n===0?"TODAY":n===1?"TOMORROW":"in "+n+" days",x+89,ry+rh/2-15,true,12,"#0B1220","center");
+    if(showWhen!==false) g.text(n===0?"TODAY":n===1?"TOMORROW":"in "+n+" days",x+89,ry+rh/2-15,true,12,"#0B1220","center");
     const bl="BLDG "+p.bldg; g.text(bl,x+180,ry+rh/2+1,true,24,MBC.AMBER);
     const lx=x+180+g.tw(bl,true,24)+16; g.text(p.label,lx,ry+rh/2+1,true,g.fit(p.label,true,24,x+w-14-lx),MBC.TXT);
     g.text("Programme activity: "+p.activity,x+180,ry+rh/2-18,false,14,MBC.MUTED);
@@ -2580,6 +2595,245 @@ async function fwBuild(){
     st.style.color="var(--success)"; st.textContent="Built from "+prog.source+". One A3 landscape page.";
   }catch(e){ st.style.color="#B3261E"; st.textContent="Could not build it: "+e.message; }
 }
+// ================= Daily Activities Board + A3 print pack (step 3) =================
+const DAB={photo:null,photoMeta:null,pack:null,logo:null,plan:null,urls:{}};
+const DAB_TRADE={"TOWER":"#23963F","HORIZONE":"#D56A00","SCALZO":"#D32F2F","SWG":"#0288D1","TWO WAY CRANES":"#3F51B5","DAVID POWER":"#00897B","ARROW":"#A32CC4","HOT":"#6D4C41","D & C":"#AD1457","INTERSPAN":"#827717","ELITE SURVEY":"#C2185B","LIPMAN/JV":"#455A64"};
+const DAB_EXTRA=["#5D4037","#00695C","#283593","#9E9D24","#6A1B9A","#EF6C00","#2E7D32","#AD1457","#0277BD","#4E342E"];
+const DAB_LEVELS=[["GROUND FLOOR","GF","#FF9F1C"],["LEVEL 1","L1","#2EC4B6"],["LEVEL 2","L2","#C77DFF"],["LEVEL 3","L3","#FF6B8B"]];
+const DAB_G="#002D2B", DAB_TEAL="#AFDFE3", DAB_INK="#0B1F1E", DAB_GREY="#5B6B6A";
+function dabTradeName(n){ const u=String(n).toUpperCase().trim(); if(u==="HIRED ON TIME") return "HOT"; if(/^JV RECRUIT/.test(u)) return "LIPMAN/JV"; return u; }
+function dabColour(trade){ if(DAB_TRADE[trade]) return DAB_TRADE[trade]; const k=Object.keys(DAB_TRADE).find(t=>trade.indexOf(t)===0||t.indexOf(trade)===0); if(k) return DAB_TRADE[k];
+  let h=0; for(const ch of trade) h=(h*31+ch.charCodeAt(0))>>>0; return DAB_EXTRA[h%DAB_EXTRA.length]; }
+function dabFont(b,s){ return (b?"bold ":"")+s+"px Helvetica, Arial, sans-serif"; }
+function dabWrap(x,text,b,fs,maxw){ x.font=dabFont(b,fs); const out=[]; let cur=""; String(text).split(/\s+/).forEach(w=>{ const t=(cur+" "+w).trim(); if(x.measureText(t).width<=maxw||!cur) cur=t; else{ out.push(cur); cur=w; } }); out.push(cur); return out; }
+function dabText(x,s,px,py,b,fs,col,align){ x.font=dabFont(b,fs); x.fillStyle=col; x.textAlign=align||"left"; x.textBaseline="alphabetic"; x.fillText(s,px,py); }
+function dabZones(){ return (DAB.pack&&DAB.pack.zones)||null; }
+
+// ---- work zone boxes, lines and leaders on a photo (rects: {level:{x0,y0,x1,y1}})
+function dabMarkup(x,zones,items,rects,S){
+  const OP=0.88, MULTI="#263238", NOGO="#C62828", BUILDING=[0.03,0.20,0.94,0.69];
+  const W_=r=>r.x1-r.x0, H_=r=>r.y1-r.y0, RC=(x0,y0,x1,y1)=>({x0,y0,x1,y1});
+  const hit=(a,b)=>a.x0<b.x1&&b.x0<a.x1&&a.y0<b.y1&&b.y0<a.y1, has=(r,p)=>p.x>=r.x0&&p.x<=r.x1&&p.y>=r.y0&&p.y<=r.y1;
+  const P=(i,uv)=>({x:rects[i].x0+uv[0]*W_(rects[i]),y:rects[i].y0+uv[1]*H_(rects[i])});
+  const ZR=z=>{ const a=P(z.panel,z.rect.slice(0,2)), b=P(z.panel,z.rect.slice(2)); return RC(a.x,a.y,b.x,b.y); };
+  const tw=(s,fs)=>{ x.font=dabFont(true,fs); return x.measureText(s).width; };
+  const wrap=(lines,fs,maxw)=>{ const out=[]; lines.forEach(ln=>{ let cur=""; ln.split(/\s+/).forEach(w=>{ const t=(cur+" "+w).trim(); if(tw(t,fs)<=maxw||!cur) cur=t; else{ out.push(cur); cur=w; } }); out.push(cur); }); return out; };
+  const fitIn=(lines,r,fmax,fmin)=>{ for(let fs=fmax;fs>=fmin;fs-=0.5){ const w=wrap(lines,fs,W_(r)-12); if(w.length*fs*1.22+8<=H_(r)&&w.every(l=>tw(l,fs)<=W_(r)-8)) return [fs,w]; } return [null,null]; };
+  const rgbS=c=>Array.isArray(c)?"rgb("+c.map(v=>Math.round(v*255)).join(",")+")":c;
+  const arrow=(a,b,lw)=>{ x.strokeStyle="#fff"; x.fillStyle="#fff"; x.lineWidth=lw; x.beginPath(); x.moveTo(a.x,a.y); x.lineTo(b.x,b.y); x.stroke();
+    const an=Math.atan2(b.y-a.y,b.x-a.x), L=7*S+3; x.beginPath(); x.moveTo(b.x,b.y); x.lineTo(b.x-L*Math.cos(an-0.4),b.y-L*Math.sin(an-0.4)); x.lineTo(b.x-L*Math.cos(an+0.4),b.y-L*Math.sin(an+0.4)); x.closePath(); x.fill(); };
+  const box=(r,lines,fs,col,leaders)=>{ (leaders||[]).forEach(l=>arrow(l[1],l[0],1.6*Math.max(S,0.8)));
+    x.globalAlpha=OP; x.fillStyle=col; x.fillRect(r.x0,r.y0,W_(r),H_(r)); x.globalAlpha=1;
+    if(leaders&&leaders.length){ x.strokeStyle="#fff"; x.lineWidth=1.5*Math.max(S,0.8); x.strokeRect(r.x0,r.y0,W_(r),H_(r)); }
+    lines.forEach((l,k)=>dabText(x,l,r.x0+5,r.y0+4+fs*0.95+k*fs*1.22,true,fs,"#fff")); };
+  const byZone={}, unplaced=[], occ={}; Object.keys(rects).forEach(k=>occ[k]=[]);
+  items.forEach(it=>it.zones.forEach(zid=>{ const z=zones[zid]; if(!z) return; if(!rects[z.panel]) return; (byZone[zid]=byZone[zid]||[]).push(it); }));
+  Object.keys(zones).forEach(zid=>{ const z=zones[zid]; if(z.type!=="nogo"||!rects[z.panel]) return; const r=ZR(z); let [fs,w]=fitIn([z.label.replace(" - ",": ")],r,15*S,6*S); if(!fs){ fs=6*S; w=wrap([z.label],fs,W_(r)-10); } box(r,w,fs,NOGO); occ[z.panel].push(r); });
+  const zcol=its=>{ const t=[...new Set(its.map(i=>i.trade))]; return t.length===1?dabColour(t[0]):MULTI; };
+  const callZone={};
+  Object.keys(byZone).forEach(zid=>{ const its=byZone[zid], z=zones[zid], i=z.panel, lines=its.map(it=>it.label); let r=z.type==="box"?ZR(z):null, fs=null, w=null;
+    if(r) [fs,w]=fitIn(lines,r,14*S,8.5*S);
+    if(r&&W_(r)>100*S&&(fs===null||fs<10.5*S)){ fs=10.5*S; const bw=Math.min(W_(r)>=150*S?W_(r):250*S,rects[i].x1-r.x0-6); w=wrap(lines,fs,bw-12); r=RC(r.x0,r.y0,r.x0+bw,r.y0+10); }
+    if(fs){ r=RC(r.x0,r.y0,r.x0+Math.min(W_(r),Math.max(...w.map(l=>tw(l,fs)))+12),r.y0+w.length*fs*1.22+8);
+      const dy=Math.max(0,r.y1-(rects[i].y1-3)), dx=Math.max(0,r.x1-(rects[i].x1-3)); r=RC(r.x0-dx,r.y0-dy,r.x1-dx,r.y1-dy);   // keep the box on the photo
+      for(let n=0;n<200&&occ[i].some(o=>hit(r,o))&&r.x1+6<=rects[i].x1-3;n++) r=RC(r.x0+6,r.y0,r.x1+6,r.y1);   // and off the no-go boxes
+      occ[i].push(r); box(r,w,fs,zcol(its)); }
+    else callZone[zid]=its; });
+  const targets={};
+  Object.keys(callZone).forEach(zid=>{ const z=zones[zid], i=z.panel, col=zcol(callZone[zid]);
+    if(z.type==="box"){ const r=ZR(z); occ[i].push(r); x.globalAlpha=OP; x.fillStyle=col; x.fillRect(r.x0,r.y0,W_(r),H_(r)); x.globalAlpha=1; targets[zid]=["rect",r]; }
+    else{ const lc=(zid.indexOf("SCAFFOLD")>=0||col===MULTI)?rgbS(z.colour):col, segs=[];
+      (z.paths||[]).forEach(path=>{ const pts=path.map(v=>P(i,v)); x.strokeStyle=lc; x.lineWidth=6*Math.max(S,0.8); x.lineJoin="round"; x.lineCap="butt"; x.beginPath(); pts.forEach((p,k)=>k?x.lineTo(p.x,p.y):x.moveTo(p.x,p.y)); x.stroke();
+        for(let k=0;k+1<pts.length;k++){ const p=pts[k], q=pts[k+1]; segs.push([p,q]); occ[i].push(RC(Math.min(p.x,q.x)-4,Math.min(p.y,q.y)-4,Math.max(p.x,q.x)+4,Math.max(p.y,q.y)+4)); } });
+      targets[zid]=["segs",segs]; } });
+  const groups={};
+  items.forEach(it=>Object.keys(rects).forEach(pn=>{ const zs=it.zones.filter(z=>callZone[z]&&zones[z].panel===pn).sort(); if(zs.length){ const k=zs.join("|"); (groups[k]=groups[k]||{zs:zs,items:[]}).items.push(it); } }));
+  const nearest=(t,pt)=>{ if(t[0]==="rect"){ const g=t[1]; return {x:Math.min(Math.max(pt.x,g.x0),g.x1),y:Math.min(Math.max(pt.y,g.y0),g.y1)}; }
+    let best=null,bd=1e18; t[1].forEach(s=>{ const p=s[0],q=s[1],dx=q.x-p.x,dy=q.y-p.y,L2=dx*dx+dy*dy||1; const u=Math.min(Math.max(((pt.x-p.x)*dx+(pt.y-p.y)*dy)/L2,0.15),0.85); const c={x:p.x+u*dx,y:p.y+u*dy}, d=Math.hypot(c.x-pt.x,c.y-pt.y); if(d<bd){ bd=d; best=c; } }); return best; };
+  const centre=t=>{ if(t[0]==="rect"){ const g=t[1]; return {x:(g.x0+g.x1)/2,y:(g.y0+g.y1)/2}; } let b=t[1][0],bl=-1; t[1].forEach(s=>{ const l=Math.hypot(s[0].x-s[1].x,s[0].y-s[1].y); if(l>bl){ bl=l; b=s; } }); return {x:(b[0].x+b[1].x)/2,y:(b[0].y+b[1].y)/2}; };
+  const pending=Object.keys(groups).map(k=>{ const g=groups[k]; return {i:zones[g.zs[0]].panel,lines:g.items.map(it=>it.label),col:zcol(g.items),tg:g.zs.map(z=>targets[z]).filter(Boolean)}; }).filter(p=>p.tg.length);
+  pending.sort((a,b)=>b.tg.length-a.tg.length||b.lines.length-a.lines.length);
+  pending.forEach(pd=>{ const i=pd.i, tg=pd.tg, fs=11.5*S, pr=rects[i]; let best=null, choice=null;
+    const deck=RC(pr.x0+BUILDING[0]*W_(pr),pr.y0+BUILDING[1]*H_(pr),pr.x0+BUILDING[2]*W_(pr),pr.y0+BUILDING[3]*H_(pr));
+    const cen=tg.map(centre), ax=cen.reduce((n,c)=>n+c.x,0)/cen.length, ay=cen.reduce((n,c)=>n+c.y,0)/cen.length, step=6*Math.max(S,1);
+    (tg.length>1?[165,120]:[240,165,115]).forEach((width,wi)=>{ const w=wrap(pd.lines,fs,width*S), bw=Math.max(...w.map(l=>tw(l,fs)))+14, bh=w.length*fs*1.22+8; let bw_=null;
+      for(let y=pr.y0+5;y+bh<=pr.y1-5;y+=step) for(let xx=pr.x0+5;xx+bw<=pr.x1-5;xx+=step){ const c=RC(xx,y,xx+bw,y+bh); if(occ[i].some(o=>hit(c,o))) continue;
+        let cost=tg.length>1?Math.hypot((c.x0+c.x1)/2-ax,(c.y0+c.y1)/2-ay):Math.hypot(Math.max(c.x0-ax,0,ax-c.x1),Math.max(c.y0-ay,0,ay-c.y1));
+        if(tg.length===1&&cost<22*S) cost+=200;
+        const ox=Math.min(c.x1,deck.x1)-Math.max(c.x0,deck.x0), oy=Math.min(c.y1,deck.y1)-Math.max(c.y0,deck.y0); if(ox>0&&oy>0) cost+=60+0.006*ox*oy/(S*S);
+        if(bw_===null||cost<bw_[0]){ const mid={x:(c.x0+c.x1)/2,y:(c.y0+c.y1)/2};
+          for(const t of tg){ const tip=nearest(t,mid); let bad=false; for(let k=1;k<12;k++){ const q={x:mid.x+(tip.x-mid.x)*k/12,y:mid.y+(tip.y-mid.y)*k/12}; if(occ[i].some(o=>has(o,q)&&!has(o,tip)&&!has(c,q))){ bad=true; break; } } if(bad){ cost+=150; break; } } }
+        if(bw_===null||cost<bw_[0]) bw_=[cost,c]; }
+      if(bw_&&(best===null||bw_[0]+12*wi<best[0])){ best=[bw_[0]+12*wi,bw_[1]]; choice=w; } });
+    if(!best){ unplaced.push(pd.lines.join("; ")); return; }
+    const c=best[1]; occ[i].push(RC(c.x0-3,c.y0-3,c.x1+3,c.y1+3));
+    const leaders=tg.map(t=>{ const mid={x:(c.x0+c.x1)/2,y:(c.y0+c.y1)/2}, tip=nearest(t,mid), st={x:Math.min(Math.max(tip.x,c.x0),c.x1),y:Math.min(Math.max(tip.y,c.y0),c.y1)}; if(!(c.x0<=tip.x&&tip.x<=c.x1)) st.y=Math.min(Math.max(tip.y,c.y0+4),c.y1-4); return [tip,st]; });
+    box(c,choice,fs,pd.col,leaders); });
+  return unplaced;
+}
+function dabItems(plan,zones,only){ const out=[]; plan.rows.forEach((r,n)=>{ const zs=(r[3]||[]).filter(z=>zones[z]&&(!only||zones[z].panel===only)); if(zs.length) out.push({trade:r[0],zones:zs,label:(n+1)+". "+r[0]+": "+String(r[1]).toUpperCase()}); }); return out; }
+function dabDayLong(iso,short){ const d=mbDate(iso); return short?(MB_DAY[d.getDay()]+" "+String(d.getDate()).padStart(2,"0")+" "+MB_MON[d.getMonth()]+" "+d.getFullYear()):(MB_DAYL[d.getDay()]+" "+String(d.getDate()).padStart(2,"0")+" "+MB_MONL[d.getMonth()]+" "+d.getFullYear()); }
+
+// ---- the board itself, 2560 x 1200 (same layout as the boards Claude has been issuing)
+function dabRender(plan,K){
+  const W=2560,H=1200, c=document.createElement("canvas"); c.width=W*K; c.height=H*K; const x=c.getContext("2d"); x.scale(K,K);
+  const zones=dabZones(), im=DAB.photo, asp=im.width/im.height, rows=plan.rows, hrw=(plan.hrw||[]).slice(0,5);
+  const fill=(col,x0,t,w,h)=>{ x.fillStyle=col; x.fillRect(x0,t,w,h); };
+  const box=(x0,t,w,h,label)=>{ fill("#fff",x0,t,w,h); x.strokeStyle=DAB_G; x.lineWidth=1.6; x.strokeRect(x0,t,w,h); fill(DAB_G,x0,t,w,24); dabText(x,label,x0+8,t+17,false,14,"#fff"); };
+  const badge=(bx,by,n,col)=>{ x.beginPath(); x.arc(bx,by,10.5,0,7); x.fillStyle=col; x.fill(); x.strokeStyle="#fff"; x.lineWidth=1.4; x.stroke(); const fs=n<10?12:10.5; dabText(x,String(n),bx,by+fs*0.35,true,fs,"#fff","center"); };
+  fill(DAB_G,0,0,W,H); fill("#fff",16,104,W-32,H-120);
+  dabText(x,"Daily Activities Board",40,76,false,60,DAB_TEAL);
+  if(DAB.logo) x.drawImage(DAB.logo,W-36-330,94-330*48/186,330,330*48/186); else dabText(x,"LIPMAN",W-40,70,true,44,"#fff","right");
+  const LX=34,T0=120,gap=8,strip=22,DH=76;
+  const hrwH=lw=>{ let t=32; hrw.forEach(h=>{ t+=15*dabWrap(x,h[0],true,12.5,lw-46).length+14+13.5*dabWrap(x,h[2],false,11.5,lw-46).length+7; }); return Math.max(t+6,120); };
+  let LW=800,HRW_H,HT,ph,pw,RW; for(let k=0;k<6;k++){ HRW_H=hrwH(LW); HT=1184-14-HRW_H; ph=(HT-T0-gap)/2; pw=ph*asp; RW=2*(pw+strip)+gap; LW=W-2*LX-14-RW; }
+  HRW_H=hrwH(LW); HT=1184-14-HRW_H; const RX=LX+LW+14;
+  box(LX,T0,250,DH,"Date"); box(LX+260,T0,LW-260,DH,"Weather"); dabText(x,dabDayLong(plan.for_date,true),LX+8,T0+58,true,21,DAB_INK);
+  let wl=[],wfs=15; for(const o of [[15,2],[13,3],[11.5,3],[10,4],[9,5]]){ wfs=o[0]; wl=dabWrap(x,plan.weather||"",false,wfs,LW-260-16); if(wl.length<=o[1]) break; }
+  { const lead=wfs*1.22, top=T0+24+(DH-24-lead*wl.length)/2+wfs*0.95; wl.forEach((l,k)=>dabText(x,l,LX+268,top+k*lead,false,wfs,DAB_INK)); }
+  const TT=T0+DH+10, TB=HT-10; box(LX,TT,LW,TB-TT,"Contractor");
+  const cx=[LX,LX+178,LX+212,LX+LW-200,LX+LW]; dabText(x,"Daily Task",cx[2]+4,TT+17,false,14,"#fff"); dabText(x,"Zone",cx[3]+6,TT+17,false,14,"#fff");
+  const rh=Math.min(40,(TB-TT-24)/Math.max(rows.length,1)); let t=TT+24, prev=null;
+  rows.forEach((r,n)=>{ const trade=r[0],task=r[1],ztxt=r[2]||"",col=dabColour(trade),mid=t+rh/2;
+    if(trade!==prev){ if(prev!==null){ x.strokeStyle=DAB_G; x.lineWidth=1.1; x.beginPath(); x.moveTo(LX,t); x.lineTo(LX+LW,t); x.stroke(); }
+      fill(col,LX+1,t,6,rh); let fs=14; x.font=dabFont(true,fs); while(x.measureText(trade).width>cx[1]-cx[0]-20&&fs>7){ fs-=0.5; x.font=dabFont(true,fs); } dabText(x,trade,LX+14,mid+5,true,fs,DAB_INK); }
+    else{ fill(col,LX+1,t,6,rh); x.strokeStyle="#C9D6D5"; x.lineWidth=0.6; x.beginPath(); x.moveTo(cx[1],t); x.lineTo(LX+LW,t); x.stroke(); }
+    badge(cx[1]+16,mid,n+1,col);
+    let fs=14, lines=dabWrap(x,task,false,fs,cx[3]-cx[2]-12); if(lines.length>1){ fs=12; lines=dabWrap(x,task,false,fs,cx[3]-cx[2]-12); } if(lines.length>2&&rh<34){ fs=10; lines=dabWrap(x,task,false,fs,cx[3]-cx[2]-12); }
+    const sh=lines.slice(0,rh>=38?3:2); if(lines.length>sh.length) sh[sh.length-1]=sh[sh.length-1].replace(/.{0,3}$/,"…");
+    sh.forEach((l,k)=>dabText(x,l,cx[2]+4,mid+fs*0.35-(sh.length-1)*fs*0.58+k*fs*1.16,false,fs,DAB_INK));
+    let fz=13.5; x.font=dabFont(true,fz); while(x.measureText(ztxt).width>cx[4]-cx[3]-12&&fz>7){ fz-=0.5; x.font=dabFont(true,fz); } dabText(x,ztxt,cx[3]+6,mid+5,true,fz,DAB_INK);
+    prev=trade; t+=rh; });
+  x.strokeStyle="#C9D6D5"; x.lineWidth=0.6; [cx[1],cx[3]].forEach(vx=>{ x.beginPath(); x.moveTo(vx,TT+24); x.lineTo(vx,t); x.stroke(); });
+  box(LX,HT,LW,HRW_H,"High Risk Works & Controls"); t=HT+32;
+  hrw.forEach((h,k)=>{ x.beginPath(); x.arc(LX+18,t+9,9,0,7); x.fillStyle="#C62828"; x.fill(); dabText(x,String(k+1),LX+18,t+13,true,11.5,"#fff","center");
+    dabWrap(x,h[0],true,12.5,LW-46).forEach(l=>{ dabText(x,l,LX+34,t+13,true,12.5,DAB_INK); t+=15; });
+    dabText(x,String(h[1]||"").toUpperCase(),LX+34,t+12,true,11,"#C62828"); t+=14;
+    dabWrap(x,h[2],false,11.5,LW-46).forEach(l=>{ dabText(x,l,LX+34,t+12,false,11.5,DAB_GREY); t+=13.5; }); t+=7; });
+  const cw=pw+strip, rects={};
+  DAB_LEVELS.forEach((lv,i)=>{ const x0=RX+(i%2)*(cw+gap), tt=T0+Math.floor(i/2)*(ph+gap), px=x0+strip; fill(lv[2],x0,tt,strip,ph);
+    x.save(); x.translate(x0+strip/2+5,tt+ph/2); x.rotate(-Math.PI/2); dabText(x,lv[0],0,0,true,15,DAB_G,"center"); x.restore();
+    x.drawImage(im,px,tt,pw,ph); rects[lv[1]]={x0:px,y0:tt,x1:px+pw,y1:tt+ph}; });
+  const unplaced=dabMarkup(x,zones,dabItems(plan,zones),rects,pw/916);
+  DAB_LEVELS.forEach((lv,i)=>{ const x0=RX+(i%2)*(cw+gap), tt=T0+Math.floor(i/2)*(ph+gap); x.strokeStyle=lv[2]; x.lineWidth=2.5; x.strokeRect(x0,tt,cw,ph); });
+  dabText(x,"Numbers on the photos match the Daily Task list. "+(plan.photo_note||"")+". Source: "+(plan.source||"meeting draft")+".",W-40,1195.5,false,11,DAB_TEAL,"right");
+  const bw=(RW-10)/2; [[RX,"Permits",plan.permits||[]],[RX+bw+10,"Deliveries",plan.deliveries||[]]].forEach(b=>{ box(b[0],HT,bw,HRW_H,b[1]); let ty=HT+36;
+    b[2].forEach(it=>{ dabWrap(x,it,false,16,bw-20).forEach(l=>{ dabText(x,l,b[0]+10,ty+14,false,16,DAB_INK); ty+=21; }); ty+=6; }); });
+  return {canvas:c,leftClip:[27,113,RX-7-27,1178-113],unplaced:unplaced};
+}
+// ---- print pack pages (A3)
+function dabLevelPage(plan,lv,K){
+  const W=1190.55,H=841.89,c=document.createElement("canvas"); c.width=Math.round(W*K); c.height=Math.round(H*K); const x=c.getContext("2d"); x.scale(K,K);
+  const zones=dabZones(), im=DAB.photo, asp=im.width/im.height; x.fillStyle="#fff"; x.fillRect(0,0,W,H); x.fillStyle=lv[2]; x.fillRect(0,0,W,78);
+  dabText(x,lv[0],24,56,true,46,DAB_G); dabText(x,dabDayLong(plan.for_date),W-24,40,true,24,DAB_G,"right");
+  dabText(x,"Daily activities. "+(plan.photo_note||"")+". Source: "+(plan.source||"meeting draft")+".",W-24,62,false,14,DAB_G,"right");
+  const pw=W-40, ph=pw/asp, px=20, pt=96; x.drawImage(im,px,pt,pw,ph);
+  const rect={}; rect[lv[1]]={x0:px,y0:pt,x1:px+pw,y1:pt+ph}; dabMarkup(x,zones,dabItems(plan,zones,lv[1]),rect,pw/916);
+  x.strokeStyle=lv[2]; x.lineWidth=3; x.strokeRect(px,pt,pw,ph);
+  const mine=[]; plan.rows.forEach((r,n)=>{ if((r[3]||[]).some(z=>zones[z]&&zones[z].panel===lv[1])) mine.push([n+1,r]); });
+  const t=pt+ph+20, colw=(W-60)/2, per=mine.length>4?Math.ceil(mine.length/2):mine.length, pitch=Math.min(40,(H-t-10)/Math.max(per,1));
+  mine.forEach((m,k)=>{ const r=m[1], bx=20+(per?Math.floor(k/per):0)*(colw+20), ty=t+(per?k%per:0)*pitch, tc=dabColour(r[0]);
+    x.beginPath(); x.arc(bx+15,ty+14,14,0,7); x.fillStyle=tc; x.fill(); dabText(x,String(m[0]),bx+15,ty+19,true,15,"#fff","center");
+    dabText(x,r[0],bx+38,ty+12,true,16,DAB_INK); let txt=r[1]+"  ("+(r[2]||"")+")"; x.font=dabFont(false,15); let cut=false; while(x.measureText(txt+(cut?"…":"")).width>colw-40&&txt.length>10){ txt=txt.slice(0,-2); cut=true; } dabText(x,txt+(cut?"…":""),bx+38,ty+30,false,15,DAB_INK); });
+  if(!mine.length) dabText(x,"No activities recorded on this level.",20,t+20,false,18,DAB_INK);
+  return c;
+}
+function dabLeftPage(board,clip,KB,K){
+  const W=841.89,H=1190.55,c=document.createElement("canvas"); c.width=Math.round(W*K); c.height=Math.round(H*K); const x=c.getContext("2d"); x.scale(K,K);
+  x.fillStyle="#fff"; x.fillRect(0,0,W,H); x.fillStyle=DAB_G; x.fillRect(0,0,W,70); dabText(x,"Daily Activities Board",22,47,false,34,DAB_TEAL);
+  if(DAB.logo) x.drawImage(DAB.logo,W-22-190,12,190,190*48/186);
+  const k=Math.min((W-30)/clip[2],(H-100)/clip[3]), w=clip[2]*k, h=clip[3]*k; x.imageSmoothingQuality="high";
+  x.drawImage(board,clip[0]*KB,clip[1]*KB,clip[2]*KB,clip[3]*KB,(W-w)/2,84,w,h); return c;
+}
+function dabPoursPage(prog,iso,K){
+  const W=1190.55,H=841.89,c=document.createElement("canvas"); c.width=Math.round(W*K); c.height=Math.round(H*K); const x=c.getContext("2d"); x.scale(K,K);
+  x.fillStyle="#0B1220"; x.fillRect(0,0,W,H); dabText(x,"TPHS M3  UPCOMING CONCRETE POURS",24,48,true,26,"#E8EDF5"); dabText(x,"As at "+dabDayLong(iso,true),W-24,46,true,20,"#F5A623","right");
+  const pw=749,ph=452,k=Math.min((W-40)/pw,(H-110)/ph); x.save(); x.translate((W-pw*k)/2,70+(H-70-ph*k)/2); x.scale(k,k); mbPours(mbG(x,ph),prog,mbDate(iso),0,0,pw,ph,false); x.restore(); return c;
+}
+function pdfFromJpegs(pages,title){
+  const enc=new TextEncoder(), parts=[], offs=[]; let len=0; const push=b=>{ const u=typeof b==="string"?enc.encode(b):b; parts.push(u); len+=u.length; };
+  const obj=(n,body)=>{ offs[n]=len; push(n+" 0 obj\n"+body+"\nendobj\n"); }, N=pages.length;
+  push("%PDF-1.4\n%âãÏÓ\n"); obj(1,"<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2,"<< /Type /Pages /Kids ["+pages.map((p,i)=>(4+i*3)+" 0 R").join(" ")+"] /Count "+N+" >>");
+  obj(3,"<< /Title ("+String(title).replace(/[()\\]/g,"")+") /Producer (TPHS daily prestart app) >>");
+  pages.forEach((p,i)=>{ const a=4+i*3; obj(a,"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 "+p.pageW+" "+p.pageH+"] /Resources << /XObject << /Im0 "+(a+1)+" 0 R >> >> /Contents "+(a+2)+" 0 R >>");
+    offs[a+1]=len; push((a+1)+" 0 obj\n<< /Type /XObject /Subtype /Image /Width "+p.pxW+" /Height "+p.pxH+" /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length "+p.jpg.length+" >>\nstream\n"); push(p.jpg); push("\nendstream\nendobj\n");
+    const cs="q "+p.pageW+" 0 0 "+p.pageH+" 0 0 cm /Im0 Do Q"; obj(a+2,"<< /Length "+cs.length+" >>\nstream\n"+cs+"\nendstream"); });
+  const total=4+N*3, xref=len; let xr="xref\n0 "+total+"\n0000000000 65535 f \n"; for(let i=1;i<total;i++) xr+=String(offs[i]).padStart(10,"0")+" 00000 n \n";
+  push(xr+"trailer\n<< /Size "+total+" /Root 1 0 R /Info 3 0 R >>\nstartxref\n"+xref+"\n%%EOF\n"); return new Blob(parts,{type:"application/pdf"});
+}
+async function dabJpeg(c,q){ const b=await new Promise(r=>c.toBlob(r,"image/jpeg",q||0.9)); if(!b) throw new Error("The browser could not make the page image (not enough memory)."); return new Uint8Array(await b.arrayBuffer()); }
+
+// ---- site pack (zone map + logo) and the aligned photo, both kept on this device only
+function dabLoadPack(){ try{ DAB.pack=JSON.parse(localStorage.getItem("tphs_sitepack_v1")||"null"); }catch(e){ DAB.pack=null; }
+  if(DAB.pack&&DAB.pack.logo){ const im=new Image(); im.onload=()=>{ DAB.logo=im; }; im.src=DAB.pack.logo; } }
+function onSitePack(inp){ const f=inp.files&&inp.files[0]; if(!f) return; const st=document.getElementById("packStatus"), r=new FileReader();
+  r.onload=()=>{ try{ const p=JSON.parse(r.result); if(!p||p.kind!=="tphs-site-pack"||!p.zones) throw new Error("This is not a site pack file."); p._file=f.name; p._loaded=new Date().toISOString();
+      localStorage.setItem("tphs_sitepack_v1",JSON.stringify(p)); dabLoadPack(); st.style.color="var(--success)"; st.textContent="Loaded: "+Object.keys(p.zones).length+" photo zones"+(p.made?" (zone map of "+p.made+")":"")+"."; renderNeeds(); dabRefresh();
+    }catch(e){ st.style.color="#B3261E"; st.textContent=e.message; } }; r.readAsText(f); inp.value=""; }
+async function dabSavePhoto(){ try{ if(!MB.aligned) return; const b=await new Promise(r=>MB.aligned.toBlob(r,"image/jpeg",0.9)); await idbPut("dab_photo",b);
+    const d=loadDay(); d.photo={at:new Date().toISOString(),name:MB.photoName||"",time:(document.getElementById("mbTime")||{}).value||"",date:(document.getElementById("mbDate")||{}).value||""}; saveDay(d); await dabLoadPhoto(); }catch(e){} }
+async function dabLoadPhoto(){ try{ const b=await idbGet("dab_photo"); const blob=b&&(b.blob||b); if(!blob||!blob.size){ DAB.photo=null; return; } const url=URL.createObjectURL(blob), im=new Image();
+    await new Promise((res,rej)=>{ im.onload=res; im.onerror=rej; im.src=url; }); DAB.photo=im; DAB.photoMeta=loadDay().photo||null; }catch(e){ DAB.photo=null; } dabRefresh(); }
+function dabPhotoNote(){ const m=DAB.photoMeta; if(!m) return "Drone photo"; const d=m.date?mbDate(m.date):new Date(m.at); return "Drone photo "+MB_DAY[d.getDay()]+" "+String(d.getDate()).padStart(2,"0")+" "+MB_MON[d.getMonth()]+(m.time?" "+m.time:""); }
+
+// ---- plan: tasks to photo zones and the high risk works, by one API call
+function dabSig(){ return JSON.stringify([trades.map(t=>[t.name,(t.activities||"").trim(),t.results||""]),(typeof wxCurrent==="function")?wxCurrent():"",Object.keys(dabZones()||{}).length]); }
+function dabPlanPrompt(){
+  const zones=dabZones(), zl=Object.keys(zones).filter(k=>zones[k].type!=="nogo").map(k=>k+" ["+(zones[k].type==="line"?"line":"area")+"]").join("\n"), wx=wxCurrent();
+  const cards=trades.filter(t=>(t.activities||"").trim()).map(t=>"CONTRACTOR: "+dabTradeName(t.name)+"\nTASKS (one per line):\n"+t.activities.trim()+"\nZONES ON THE DRAFT: "+((t.locations||[]).join("; ")||"none given")+"\nCONTROLS ALREADY GENERATED:\n"+(t.results||"(none)")).join("\n\n---\n\n");
+  return "You are preparing the Lipman Daily Activities Board for The Ponds High School (Buildings E and F). Below are the day's contractors in order, their tasks, and their hazard controls.\n\n"
+  +"PART 1, rows. Return one row per task line, in the same order, with the contractor name exactly as given and the task wording unchanged (trim only). For each row give 'zone_text' (short, e.g. 'Bldg F, GF-L1' or 'Bldg E Main Storage Yard') and 'zones': the ids from the PHOTO ZONE LIST that the task physically occupies. The id prefix is the photo the zone is drawn on (GF, L1, L2, L3). Rules: "
+  +"walls, columns, stairs and scaffold that run between two levels are shown on the photo of the level they stand on (GF-L1 work on GF, L1-L2 work on L1); slab works (deck formwork, reo, post-tension stressing, conduits, pours) go on that level's SLAB zone; cranes and concrete pumps go on the ground floor CRANE/PUMP SET-UP zone of that building; edgeboard formwork uses the EDGEBOARD lines for that building and level (formwork: both the FW ONLY and FW + ARROW lines; cast-in brackets by Arrow: the FW + ARROW line only); post-tension live ends or live anchors use the PT LIVE ENDS lines; scaffold day N uses the SCAFFOLD DAY N line of that building; storage yard tasks use the storage yard zone. Use only ids from the list, spelled exactly. If nothing in the list fits (gates, traffic control, whole-site tasks), return an empty list; do not force a fit.\n\n"
+  +"PART 2, hrw. Choose the highest-risk works of the day, at most 5, most serious first (for example crane lifts, work at height, scaffold erection, mobile plant, excavation, stressing, concrete pumping). For each give 'title' (the work, where, and the contractor in brackets), 'why' (2 to 6 words naming the hazard category) and 'controls' (one paragraph, at most 60 words, condensed from that contractor's controls above; add nothing that is not supported by them)."
+  +(wx?" The forecast for the day is: "+wx+" Where it creates a real risk for one of these works, end that item's controls with the specific stop-work or make-safe trigger.":"")
+  +"\n\nAustralian English. No em-dashes. Return STRICT JSON only, no markdown: {\"rows\":[{\"trade\":\"...\",\"task\":\"...\",\"zone_text\":\"...\",\"zones\":[\"...\"]}],\"hrw\":[{\"title\":\"...\",\"why\":\"...\",\"controls\":\"...\"}]}\n\nPHOTO ZONE LIST:\n"+zl+"\n\nCONTRACTORS:\n\n"+cards;
+}
+async function dabMakePlan(){
+  const apiKey=(localStorage.getItem("tphs_apikey")||"").trim(); if(!apiKey) throw new Error("Set the API key in the sidebar first.");
+  const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:"claude-fable-5",max_tokens:6000,output_config:{effort:"high"},messages:[{role:"user",content:dabPlanPrompt()}]})});
+  if(!resp.ok){ const er=await resp.json().catch(()=>({})); throw new Error((er&&er.error&&er.error.message)||"API error "+resp.status); }
+  const data=await resp.json(); if(data.stop_reason==="max_tokens") throw new Error("The board plan was cut off. Try again.");
+  let raw=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n").replace(/```json|```/g,"").trim(); const a=raw.indexOf("{"), z=raw.lastIndexOf("}"); if(a>=0&&z>a) raw=raw.slice(a,z+1);
+  let p; try{ p=JSON.parse(raw); }catch(e){ throw new Error("Could not read the board plan reply."); }
+  const zones=dabZones(), day=loadDay(), dr=day.draft||{}, split=s=>String(s||"").split(/\n|;\s+/).map(v=>v.trim()).filter(v=>v&&!/^(none|nil|n\/a|no)\.?$/i.test(v));
+  const dropped=[]; const rows=(p.rows||[]).map(r=>{ const zs=(r.zones||[]).filter(zid=>{ const ok=zones[zid]&&zones[zid].type!=="nogo"; if(!ok) dropped.push(zid); return ok; }); return [dabTradeName(r.trade),String(r.task||"").trim(),String(r.zone_text||"").trim(),zs]; });
+  if(!rows.length) throw new Error("The board plan came back empty.");
+  // keep the draft's contractor order even if the reply strayed
+  const ord={}; trades.forEach((t,i)=>{ ord[dabTradeName(t.name)]=i; }); rows.forEach((r,i)=>r._i=i); rows.sort((a,b)=>((ord[a[0]]==null?999:ord[a[0]])-(ord[b[0]]==null?999:ord[b[0]]))||a._i-b._i);
+  return {for_date:document.getElementById("siteDate").value,source:dr.ref||dr.name||"meeting draft",photo_note:dabPhotoNote(),weather:wxCurrent(),rows:rows,
+    hrw:(p.hrw||[]).slice(0,5).map(h=>[String(h.title||""),String(h.why||""),String(h.controls||"")]),permits:split(dr.permits),deliveries:split(dr.deliveries),_sig:dabSig(),_dropped:dropped};
+}
+function dabMissing(){ const m=[]; if(!dabZones()) m.push("the site pack (Setup tab)"); if(!DAB.photo) m.push("an aligned drone photo (step 1)"); if(!document.getElementById("siteDate").value) m.push("the site date");
+  const n=trades.filter(t=>(t.activities||"").trim()); if(!n.length) m.push("trade cards from the meeting draft"); else if(n.some(t=>!t.results)) m.push("controls on every card"); return m; }
+function dabRefresh(){ const el=document.getElementById("dabNeeds"); if(!el) return; const m=dabMissing();
+  el.textContent=m.length?("Still needed: "+m.join("; ")+"."):("Ready. Photo: "+dabPhotoNote()+"."); el.style.color=m.length?"#8A6100":"var(--text2)"; }
+async function dabBuild(replan){
+  const st=document.getElementById("dabStatus"), miss=dabMissing(); dabRefresh();
+  if(miss.length){ st.style.color="#B3261E"; st.textContent="Cannot build yet. Still needed: "+miss.join("; ")+"."; return false; }
+  const btn=document.getElementById("dabBuildBtn"); btn.disabled=true; st.style.color="var(--text2)";
+  try{
+    captureActivities();
+    if(replan||!DAB.plan||DAB.plan._sig!==dabSig()){ st.textContent="Working out zones and high risk works…"; DAB.plan=await dabMakePlan(); try{ const d=loadDay(); d.plan=DAB.plan; saveDay(d); }catch(e){} }
+    const plan=DAB.plan; plan.weather=wxCurrent()||plan.weather||""; plan.photo_note=dabPhotoNote(); plan.for_date=document.getElementById("siteDate").value;
+    st.textContent="Drawing the board…"; await new Promise(r=>setTimeout(r,30));
+    const ymd=plan.for_date.replace(/-/g,""); let KB=3, b; try{ b=dabRender(plan,KB); await dabJpeg(b.canvas,0.5); }catch(e){ KB=2; b=dabRender(plan,KB); }
+    const bj=await dabJpeg(b.canvas,0.9), n1="TPHS M3 Daily Activities Board "+ymd+".pdf", pdf1=pdfFromJpegs([{jpg:bj,pxW:b.canvas.width,pxH:b.canvas.height,pageW:2560,pageH:1200}],n1.replace(".pdf",""));
+    st.textContent="Drawing the print pack…"; await new Promise(r=>setTimeout(r,30));
+    const pages=[], add=async(c,w,h)=>pages.push({jpg:await dabJpeg(c,0.9),pxW:c.width,pxH:c.height,pageW:w,pageH:h});
+    for(const lv of DAB_LEVELS.slice(0,3)) await add(dabLevelPage(plan,lv,2.6),1190.55,841.89);
+    await add(dabLeftPage(b.canvas,b.leftClip,KB,3),841.89,1190.55);
+    const prog=loadProgram(); let pourNote="";
+    if(prog){ const pc=dabPoursPage(prog,plan.for_date,2.6), pj=await dabJpeg(pc,0.9); for(let i=0;i<2;i++) pages.push({jpg:pj,pxW:pc.width,pxH:pc.height,pageW:1190.55,pageH:841.89}); } else pourNote=" No programme is loaded, so the two pour sheets were left out.";
+    const n2="TPHS M3 Whiteboard Print Pack "+ymd+".pdf", pdf2=pdfFromJpegs(pages,n2.replace(".pdf",""));
+    [["dabDl1",n1,pdf1],["dabDl2",n2,pdf2]].forEach(o=>{ if(DAB.urls[o[0]]) URL.revokeObjectURL(DAB.urls[o[0]]); DAB.urls[o[0]]=URL.createObjectURL(o[2]); const a=document.getElementById(o[0]); a.href=DAB.urls[o[0]]; a.download=o[1]; a.textContent="⬇ "+o[1]; a.style.display="inline-flex"; });
+    const pv=document.getElementById("dabPrev"); pv.width=1600; pv.height=750; pv.getContext("2d").drawImage(b.canvas,0,0,1600,750); pv.style.display="block";
+    const noZone=plan.rows.map((r,i)=>r[3].length?null:(i+1)+". "+r[0]).filter(Boolean);
+    st.style.color="var(--success)"; st.innerHTML="Board and "+pages.length+"-page print pack built."+pourNote+(noZone.length?" <span style='color:#8A6100'>Not marked on a photo (no matching zone): "+escH(noZone.join(", "))+".</span>":"")+(b.unplaced.length?" <span style='color:#8A6100'>No room for a label: "+escH(b.unplaced.join("; "))+".</span>":"")+(plan.weather?"":" <span style='color:#8A6100'>No weather entered in step 2, so the weather box is blank.</span>");
+    const d=loadDay(); d.dab={at:new Date().toISOString(),date:plan.for_date}; saveDay(d); renderNeeds(); btn.disabled=false; return true;
+  }catch(e){ st.style.color="#B3261E"; st.textContent="Could not build the board: "+(e.message||e); btn.disabled=false; return false; }
+}
 function pdfFromJpeg(jpg,pxW,pxH,pageW,pageH,title){
   const enc=new TextEncoder(), parts=[], offs=[]; let len=0;
   const push=b=>{ const u=typeof b==="string"?enc.encode(b):b; parts.push(u); len+=u.length; };
@@ -2615,7 +2869,7 @@ async function mbBuild(){
     const a=document.getElementById("mbDownload"); a.href=MB.pdfUrl; a.download=name; a.textContent="⬇ Download "+name; a.style.display="inline-flex";
     const pv=document.getElementById("mbBoardPrev"); pv.width=1280; pv.height=600; pv.getContext("2d").drawImage(c,0,0,1280,600); pv.style.display="block";
     st.style.color="var(--success)"; st.textContent="Board built ("+(pdf.size/1048576).toFixed(1)+" MB). Check the preview, then download and open in Bluebeam.";
-    const day=loadDay(); day.board={at:new Date().toISOString(),date:d}; saveDay(day); renderNeeds();
+    const day=loadDay(); day.board={at:new Date().toISOString(),date:d}; saveDay(day); renderNeeds(); dabSavePhoto();
   }catch(e){ st.style.color="#B3261E"; st.textContent="Could not build the board: "+e.message; }
 }
 document.addEventListener("DOMContentLoaded",()=>{
@@ -2665,18 +2919,18 @@ function renderNeeds(){
     [dv?"ok":"todo","Site date: "+fmtDMY(dv)+" <small>(this date goes into each controls header)</small>"],
     [n&&withAct===n?"ok":"todo","Activities entered on "+withAct+" of "+n+" cards"],
     [n&&gen===n?"ok":"todo","Controls generated on "+gen+" of "+n+" cards"+(gen&&gen<n?" <small>(press Generate all, or generate the remaining cards)</small>":"")],
-    ["info","Daily Activities Board and A3 print pack: not built into the app yet. For now, send the HammerTech draft to Claude."]
+[(day.dab&&sameLocalDay(day.dab.at))?"ok":"info",(day.dab&&sameLocalDay(day.dab.at))?"Daily Activities Board and print pack built today <small>(download them from the card below)</small>":(dabMissing().length?"Daily Activities Board and print pack: still needed: "+escH(dabMissing().join("; ")):"Daily Activities Board and print pack: press Build below")]
   ],"Hold point: review each card, then copy Activity, Controls, Zones and Employer into HammerTech.");
   document.getElementById("needSetup").innerHTML=needHtml("Setup: only when something changes","Nothing here is needed day to day.",[
     ["info","Subcontractors, zones, SWMS documents and the GitHub sync are in the sidebar, as before."],
     [prog?"ok":"todo", prog?("Lookahead programme loaded: "+escH(prog.source)+" <small>(reload only when it is revised)</small>"):"Programme: load the MS Project XML export. It stays on this device until replaced."],
     ["info","Thursdays: load the latest programme XML, then build the foreman two-week whiteboard below."],
-    ["info","The photo zone map will be loaded here once the Daily Activities Board is built in."]
+    [dabZones()?"ok":"todo", dabZones()?("Site pack loaded: "+Object.keys(dabZones()).length+" photo zones"):"Site pack (photo zone map and logo): load the file Claude supplies"]
   ],"");
 }
 (function(){
   const _rt=renderTrades;
-  renderTrades=function(){ const r=_rt.apply(this,arguments); try{ saveTrades(); renderNeeds(); markChecks(); }catch(e){} return r; };
+  renderTrades=function(){ const r=_rt.apply(this,arguments); try{ saveTrades(); renderNeeds(); markChecks(); dabRefresh(); }catch(e){} return r; };
   function markChecks(){
     const cards=document.getElementById("tradesList").children; if(cards.length!==trades.length) return;
     trades.forEach((t,i)=>{ const zs=_wbPendingZones.filter(z=>!z.done&&z.trades.includes(t.name)).map(z=>z.label);
@@ -2700,7 +2954,7 @@ function renderNeeds(){
       if(kept) renderTrades();
       chainAfterExtract(kept, Array.isArray(data&&data.uncertain)&&data.uncertain.length>0);
     }catch(e){}
-    try{ const f=(document.getElementById("wbFileInput").files||[])[0]; const d=loadDay(); d.draft={name:f?f.name:"meeting draft",at:new Date().toISOString(),date:(data&&data.date)||""}; saveDay(d); renderNeeds(); }catch(e){}
+    try{ const f=(document.getElementById("wbFileInput").files||[])[0]; const d=loadDay(); d.draft={name:f?f.name:"meeting draft",at:new Date().toISOString(),date:(data&&data.date)||"",deliveries:(data&&data.deliveries)||"",permits:(data&&data.permits)||"",ref:((/MEET-\d+/i.exec(f?f.name:"")||[""])[0]).toUpperCase()}; saveDay(d); renderNeeds(); }catch(e){}
     return r;
   };
   window.wxCurrent=function(){ const w=loadDay().weather; return (w&&w.text&&Date.now()-new Date(w.at).getTime()<20*3600*1000)?w.text:""; };
@@ -2733,7 +2987,8 @@ function renderNeeds(){
     for(let i=0;i<todo.length;i++){ chainSet("Generating controls: "+(i+1)+" of "+todo.length+" ("+escH(todo[i].name)+")…"); await generateOne(todo[i].id); }
     const bad=trades.filter(t=>t.error).map(t=>escH(t.name)), empty=trades.filter(t=>!(t.activities||"").trim()).map(t=>escH(t.name));
     if(bad.length) chainSet("Controls failed for: "+bad.join(", ")+". <button class='btn btn-primary btn-sm' onclick='genMissing()'>Try again</button>","warn");
-    else chainSet("Controls are ready on "+trades.filter(t=>t.results).length+" of "+trades.length+" cards."+(empty.length?" No activities on the draft for: "+empty.join(", ")+".":"")+(window._chainNote||"")+" <button class='btn btn-primary btn-sm' onclick=\"showStep('step3')\">Go to step 3 to review</button>",window._chainNote?"warn":"ok");
+    else { chainSet("Controls are ready on "+trades.filter(t=>t.results).length+" of "+trades.length+" cards."+(empty.length?" No activities on the draft for: "+empty.join(", ")+".":"")+(window._chainNote||"")+" <button class='btn btn-primary btn-sm' onclick=\"showStep('step3')\">Go to step 3 to review</button>",window._chainNote?"warn":"ok");
+      if(!dabMissing().length&&!document.querySelector('[id^="wbZnSel_"],[id^="wbUmSel_"]')){ const base=document.getElementById("chainStatus").innerHTML; chainSet(base+"<br>Building the Daily Activities Board and print pack…"); const ok=await dabBuild(false); chainSet(base+"<br>"+(ok?"Daily Activities Board and print pack are ready in step 3.":"The board could not be built automatically; see the board card in step 3."),ok&&!window._chainNote?"ok":"warn"); } }
   };
   window.chainAfterExtract=function(kept,uncertain){
     const pending=document.querySelector('[id^="wbZnSel_"],[id^="wbUmSel_"]');
@@ -2748,6 +3003,7 @@ function renderNeeds(){
     const sd=document.getElementById("siteDate"); if(sd) sd.addEventListener("change",renderNeeds);
     try{ document.getElementById("wxText").value=wxCurrent(); }catch(e){}
     try{ document.getElementById("fwStart").value=fwDefaultStart(); }catch(e){}
+    try{ dabLoadPack(); DAB.plan=loadDay().plan||null; dabLoadPhoto(); if(DAB.pack){ const ps=document.getElementById("packStatus"); ps.textContent="Loaded: "+Object.keys(DAB.pack.zones).length+" photo zones"+(DAB.pack.made?" (zone map of "+DAB.pack.made+")":"")+"."; } renderNeeds(); }catch(e){}
     document.getElementById("tradesList").addEventListener("input",ev=>{ if(ev.target&&ev.target.tagName==="TEXTAREA"){ captureActivities(); saveTrades(); renderNeeds(); } });
   });
 })();
