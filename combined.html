@@ -814,7 +814,7 @@ function removeLocation(name){
   captureActivities();
   siteLocations=siteLocations.filter(l=>l!==name);
   trades.forEach(t=>{ t.locations=(t.locations||[]).filter(l=>l!==name); });
-  { const al=loadZoneAlias(); Object.keys(al).forEach(k=>{ if(al[k]===name) delete al[k]; }); saveZoneAlias(al); }
+  { const al=loadZoneAlias(); Object.keys(al).forEach(k=>{ if(al[k]===name) delete al[k]; else if(Array.isArray(al[k])){ al[k]=al[k].filter(v=>v!==name); if(!al[k].length){ delete al[k]; delete al["__name_"+k]; } } }); saveZoneAlias(al); }
   saveLocations(); saveTrades(); renderLocations(); renderTrades();
 }
 function editLocationName(el,oldName){
@@ -830,7 +830,7 @@ function editLocationName(el,oldName){
       const to=dup||nn;                              // renaming onto an existing zone merges the two
       if(dup) siteLocations=siteLocations.filter(l=>l!==oldName); else if(i>=0) siteLocations[i]=nn;
       trades.forEach(t=>{ t.locations=[...new Set((t.locations||[]).map(l=>l===oldName?to:l))]; });
-      const al=loadZoneAlias(); Object.keys(al).forEach(k=>{ if(al[k]===oldName) al[k]=to; }); if(normName(oldName)!==normName(to)) al[normName(oldName)]=to; saveZoneAlias(al);   // the old name keeps pointing here
+      const al=loadZoneAlias(); Object.keys(al).forEach(k=>{ if(al[k]===oldName) al[k]=to; else if(Array.isArray(al[k])) al[k]=[...new Set(al[k].map(v=>v===oldName?to:v))]; }); if(normName(oldName)!==normName(to)) al[normName(oldName)]=to; saveZoneAlias(al);   // the old name keeps pointing here
       saveLocations(); saveTrades();
     }
     renderLocations(); renderTrades();
@@ -846,6 +846,9 @@ function renderLocations(){
   list.innerHTML=siteLocations.map(l=>`<div class="subbie-item">
     <span class="subbie-name" onclick="editLocationName(this,'${esc(l).replace(/'/g,"\\'")}')" title="Tap to rename">${esc(l)}</span>
     <button class="subbie-del" onclick="removeLocation('${esc(l).replace(/'/g,"\\'")}')" title="Remove">×</button>
+  </div>`).join("")+zoneGroups().map(g=>`<div class="subbie-item" style="background:#F3F6FA;">
+    <span class="subbie-name" title="Group name: ticks all of these zones">${esc(g.name)} <small>= ${g.zones.map(esc).join(" + ")}</small></span>
+    <button class="subbie-del" onclick="removeZoneGroup('${g.key}')" title="Remove group">×</button>
   </div>`).join("");
 }
 function toggleLocList(){
@@ -1694,7 +1697,7 @@ function buildDraftPrompt(){
   +"IMPORTANT: this document is cloned from the previous day's meeting document — ONLY the per-contractor work activities and the deliveries are updated each day. Everything else (prestart compliance tables, attendee lists, programme/lookahead, concrete pour schedules, standing notes, drone photos) may be stale carry-over: IGNORE those panels entirely. "
   +"Extract: each contractor's planned work activities, the deliveries, the works/meeting date if the document states one, weather if present, and the work permits listed under the toolbox prompts ('List any work permits in place today and area locations'), copied exactly as written (empty string if none are listed). "
   +"Accuracy rules: keep activity wording verbatim from the draft — do not paraphrase or tidy it. Classify tasks by the work the trade is physically doing, not its downstream purpose — 'preparing/building a piling platform', 'cut/fill', 'importing DGB/fill' are earthworks tasks, NOT piling; 'trenching for services' is excavation. If an entry looks like leftover text from the previous day, or is ambiguous, put it in 'uncertain' instead of guessing. "
-  +"Zones: from each activity's wording, extract WHERE the trade is working (building, level, gate or area). Where it clearly corresponds to an entry in the app's current zone list, use that entry exactly: "+JSON.stringify(siteLocations)+". Where the draft names a location not in that list, still return it, as a short tidy label in the form 'Building E - Level 1' (building or area first, then level if given) — the app will ask the user to confirm new zones, so do not omit or force-fit them. Only leave 'zones' empty when the activity gives no location at all. "
+  +"Zones: from each activity's wording, extract WHERE the trade is working (building, level, gate or area). Where it clearly corresponds to an entry in the app's current zone list, use that entry exactly: "+JSON.stringify(siteLocations)+". These group names are also valid and must be returned exactly as written when the draft uses them: "+JSON.stringify(zoneGroups().map(g=>g.name))+". Where the draft names a location not in that list, still return it, as a short tidy label in the form 'Building E - Level 1' (building or area first, then level if given) — the app will ask the user to confirm new zones, so do not omit or force-fit them. Only leave 'zones' empty when the activity gives no location at all. "
   +"Order: list the contractors in 'trades' in exactly the order they first appear in the source, top to bottom. Do not sort or group them. "
   +"Return STRICT JSON only, no markdown, no code fences, exactly this shape: "
   +'{"date":"YYYY-MM-DD","weather":"...","deliveries":"...","permits":"...","trades":[{"subcontractor":"name as written","tasks":["..."],"zones":["..."]}],"uncertain":["..."]}';
@@ -1824,6 +1827,14 @@ let _wbUnmatched=[];
 let _wbPendingZones=[];
 function loadZoneAlias(){ try{ return JSON.parse(localStorage.getItem("tphs_zone_alias_v1")||"{}")||{}; }catch(e){ return {}; } }
 function saveZoneAlias(a){ localStorage.setItem("tphs_zone_alias_v1",JSON.stringify(a)); }
+// A draft name can stand for one zone or a group of zones (e.g. "Storage Areas" = both storage yards).
+function matchZones(label){
+  const n=normName(label); if(!n) return [];
+  for(const l of siteLocations){ if(normName(l)===n) return [l]; }
+  const al=loadZoneAlias()[n]; return (Array.isArray(al)?al:(al?[al]:[])).filter(z=>siteLocations.includes(z));
+}
+function zoneGroups(){ const al=loadZoneAlias(); return Object.keys(al).filter(k=>Array.isArray(al[k])).map(k=>({key:k,name:(al["__name_"+k]||k),zones:al[k]})); }
+function removeZoneGroup(key){ const al=loadZoneAlias(); delete al[key]; delete al["__name_"+key]; saveZoneAlias(al); renderLocations(); }
 function matchZone(label){
   const n=normName(label); if(!n) return null;
   for(const l of siteLocations){ if(normName(l)===n) return l; }
@@ -1849,8 +1860,8 @@ function applyWhiteboard(data){
     const acts=(Array.isArray(tr.tasks)?tr.tasks:[]).join("\n");
     const zones=[];
     (Array.isArray(tr.zones)?tr.zones:[]).forEach(zl=>{
-      const m=matchZone(zl);
-      if(m){ if(!zones.includes(m)) zones.push(m); return; }
+      const ms=matchZones(zl);
+      if(ms.length){ ms.forEach(m=>{ if(!zones.includes(m)) zones.push(m); }); return; }
       const nz=normName(zl); if(!nz) return;
       let pz=_wbPendingZones.find(p=>p.norm===nz);
       if(!pz){ pz={label:String(zl).trim(),norm:nz,trades:[]}; _wbPendingZones.push(pz); }
@@ -1884,13 +1895,15 @@ function applyWhiteboard(data){
     fix+='<div class="wb-uncertain"><strong>Zones on the draft that are not in the zone list. Correct the name if it was mistyped, or match it to an existing zone:</strong>'
       +_wbPendingZones.map((z,i)=>`<div id="wbZn_${i}" style="margin-top:8px;">
         "${esc(z.label)}" on ${z.trades.map(esc).join(", ")}<br>
-        <select id="wbZnSel_${i}" style="max-width:46%;font-size:12px;padding:4px;" onchange="document.getElementById('wbZnTxt_${i}').style.display=this.value==='__new__'?'':'none'">
+        <select id="wbZnSel_${i}" style="max-width:46%;font-size:12px;padding:4px;" onchange="document.getElementById('wbZnTxt_${i}').style.display=this.value==='__new__'?'':'none';document.getElementById('wbZnMulti_${i}').style.display=this.value==='__multi__'?'block':'none'">
           <option value="__new__">➕ Add as a new zone, named:</option>
+          <option value="__multi__">☑ A group name covering several zones (tick them)</option>
           ${siteLocations.map(l=>`<option value="${esc(l)}">Same as: ${esc(l)}</option>`).join("")}
           <option value="__skip__">Ignore</option>
         </select>
         <input type="text" id="wbZnTxt_${i}" value="${esc(z.label)}" style="width:32%;font-size:12px;padding:4px;">
         <button class="btn btn-ghost btn-sm" onclick="wbConfirmZone(${i})">Confirm</button>
+        <div id="wbZnMulti_${i}" style="display:none;margin-top:4px;columns:2;">${siteLocations.map((l,k)=>`<label style="display:block;font-weight:400;"><input type="checkbox" value="${esc(l)}"> ${esc(l)}</label>`).join("")}</div>
       </div>`).join("")+"</div>";
   }
   html+="<div style='margin-top:6px;'>Date: "+dateNote+"</div>";
@@ -1918,22 +1931,27 @@ function wbConfirmZone(i){
   const sel=document.getElementById("wbZnSel_"+i);
   const choice=sel?sel.value:"__skip__";
   captureActivities();
-  let target=null;
+  let targets=[];
   if(choice==="__new__"){
     const typed=((document.getElementById("wbZnTxt_"+i)||{}).value||"").trim()||z.label, tn=normName(typed);
     if(!siteLocations.some(l=>normName(l)===tn)){ siteLocations.push(typed); saveLocations(); renderLocations(); }
-    target=siteLocations.find(l=>normName(l)===tn)||typed;
-  } else if(choice!=="__skip__") target=choice;
+    targets=[siteLocations.find(l=>normName(l)===tn)||typed];
+  } else if(choice==="__multi__"){
+    targets=[...document.querySelectorAll("#wbZnMulti_"+i+" input:checked")].map(c=>c.value).filter(v=>siteLocations.includes(v));
+    if(!targets.length){ alert("Tick the zones this name covers, then press Confirm."); return; }
+  } else if(choice!=="__skip__") targets=[choice];
   z.done=true;
-  if(target&&normName(target)!==z.norm){ const al=loadZoneAlias(); al[z.norm]=target; saveZoneAlias(al); }   // remember it for next time
-  if(target){
+  if(targets.length&&(targets.length>1||normName(targets[0])!==z.norm)){ const al=loadZoneAlias(); al[z.norm]=targets.length>1?targets:targets[0]; if(targets.length>1) al["__name_"+z.norm]=z.label; saveZoneAlias(al); renderLocations(); }   // remembered for next time
+  if(targets.length){
     z.trades.forEach(nm=>{
-      const t=trades.find(x=>x.name===nm);
-      if(t){ t.locations=t.locations||[]; if(!t.locations.includes(target)){ t.locations.push(target); if(t.results){ t.results=null; t._regen=true; } } }
+      const t=trades.find(x=>x.name===nm); if(!t) return; t.locations=t.locations||[]; let ch=false;
+      targets.forEach(tg=>{ if(!t.locations.includes(tg)){ t.locations.push(tg); ch=true; } });
+      if(ch&&t.results){ t.results=null; t._regen=true; }
     });
     saveTrades(); renderTrades();
   } else renderTrades();
   if(window.afterFix) setTimeout(afterFix,0);
+  const target=targets.join(" + ");
   const row=document.getElementById("wbZn_"+i);
   if(row) row.innerHTML=(choice==="__skip__")?('Ignored "'+esc(z.label)+'"'):('✓ "'+esc(z.label)+'" → <strong>'+esc(target)+"</strong>");
 }
@@ -1963,7 +1981,7 @@ function wbAssignUnmatched(i){
   }
   const acts=(Array.isArray(u.tasks)?u.tasks:[]).join("\n");
   const zones=[];
-  (Array.isArray(u.zones)?u.zones:[]).forEach(zl=>{ const m=matchZone(zl); if(m&&!zones.includes(m)) zones.push(m); });
+  (Array.isArray(u.zones)?u.zones:[]).forEach(zl=>{ matchZones(zl).forEach(m=>{ if(!zones.includes(m)) zones.push(m); }); });
   let t=trades.find(x=>x.name===target);
   if(!t){ t={id:nextId++,name:target,activities:"",locations:[],results:null,loading:false,error:null}; trades.push(t); }
   t.activities=acts; t.locations=zones; t.results=null; t.error=null;
