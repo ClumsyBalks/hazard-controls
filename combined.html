@@ -1709,7 +1709,7 @@ function buildDraftPrompt(){
   return "This is the typed draft of the Lipman 1pm site coordination meeting at The Ponds High School, covering the FOLLOWING day's works. "
   +"IMPORTANT: this document is cloned from the previous day's meeting document — ONLY the per-contractor work activities and the deliveries are updated each day. Everything else (prestart compliance tables, attendee lists, programme/lookahead, concrete pour schedules, standing notes, drone photos) may be stale carry-over: IGNORE those panels entirely. "
   +"The 'Daily Work Tasks & High Risk Activities' table has four columns: Work Activity, Control/s, Zone/s and Employer Responsible. ONLY the Work Activity and Employer Responsible columns are updated each day. The Control/s and Zone/s columns are left over from the previous day and are filled in later by this app: IGNORE both of those columns completely. Do not read zones from the Zone/s column, do not take the contractor name from the heading inside the Control/s text, and never report a mismatch between the Zone/s or Control/s column and the activities (that mismatch is expected and is not an error). The contractor for each row is the Employer Responsible entry. "
-  +"Extract: each contractor's planned work activities, the deliveries, the works/meeting date if the document states one, weather if present, and the work permits listed under the toolbox prompts ('List any work permits in place today and area locations'), copied exactly as written (empty string if none are listed). "
+  +"Extract: each contractor's planned work activities, the deliveries, the works/meeting date if the document states one, weather if present, and the work permits listed under the toolbox prompts ('List any work permits in place today and area locations'), copied exactly as written (empty string if none are listed). Deliveries: copy each delivery exactly as written, one per line separated by \\n, in the draft's order; do not merge, reword or summarise them. "
   +"Accuracy rules: keep activity wording verbatim from the draft — do not paraphrase or tidy it. Classify tasks by the work the trade is physically doing, not its downstream purpose — 'preparing/building a piling platform', 'cut/fill', 'importing DGB/fill' are earthworks tasks, NOT piling; 'trenching for services' is excavation. If an entry looks like leftover text from the previous day, or is ambiguous, put it in 'uncertain' instead of guessing. "
   +"Zones: work these out ONLY from the Work Activity wording: extract WHERE the trade is working (building, level, gate or area). Where it clearly corresponds to an entry in the app's current zone list, use that entry exactly: "+JSON.stringify(siteLocations)+". These group names are also valid and must be returned exactly as written when the draft uses them: "+JSON.stringify(zoneGroups().map(g=>g.name))+". Where the draft names a location not in that list, still return it, as a short tidy label in the form 'Building E - Level 1' (building or area first, then level if given) — the app will ask the user to confirm new zones, so do not omit or force-fit them. Only leave 'zones' empty when the activity gives no location at all. "
   +"Order: list the contractors in 'trades' in exactly the order they first appear in the source, top to bottom. Do not sort or group them. "
@@ -2635,7 +2635,7 @@ async function fwBuild(){
 }
 // ================= Daily Activities Board + A3 print pack (step 3) =================
 const DAB={photo:null,photoMeta:null,pack:null,logo:null,plan:null,urls:{}};
-const DAB_TRADE={"TOWER":"#23963F","HORIZONE":"#D56A00","SCALZO":"#D32F2F","SWG":"#0288D1","TWO WAY CRANES":"#3F51B5","DAVID POWER":"#00897B","ARROW":"#A32CC4","HOT":"#6D4C41","D & C":"#AD1457","INTERSPAN":"#827717","ELITE SURVEY":"#C2185B","LIPMAN/JV":"#455A64"};
+const DAB_TRADE={"DELIVERIES":"#111111","TOWER":"#23963F","HORIZONE":"#D56A00","SCALZO":"#D32F2F","SWG":"#0288D1","TWO WAY CRANES":"#3F51B5","DAVID POWER":"#00897B","ARROW":"#A32CC4","HOT":"#6D4C41","D & C":"#AD1457","INTERSPAN":"#827717","ELITE SURVEY":"#C2185B","LIPMAN/JV":"#455A64"};
 const DAB_EXTRA=["#5D4037","#00695C","#283593","#9E9D24","#6A1B9A","#EF6C00","#2E7D32","#AD1457","#0277BD","#4E342E"];
 const DAB_LEVELS=[["GROUND FLOOR","GF","#FF9F1C"],["LEVEL 1","L1","#2EC4B6"],["LEVEL 2","L2","#C77DFF"],["LEVEL 3","L3","#FF6B8B"]];
 const DAB_G="#002D2B", DAB_TEAL="#AFDFE3", DAB_INK="#0B1F1E", DAB_GREY="#5B6B6A";
@@ -2660,7 +2660,8 @@ function dabMarkup(x,zones,items,rects,S){
   const W_=r=>r.x1-r.x0, H_=r=>r.y1-r.y0, RC=(x0,y0,x1,y1)=>({x0,y0,x1,y1});
   const hit=(a,b)=>a.x0<b.x1&&b.x0<a.x1&&a.y0<b.y1&&b.y0<a.y1, has=(r,p)=>p.x>=r.x0&&p.x<=r.x1&&p.y>=r.y0&&p.y<=r.y1;
   const P=(i,uv)=>({x:rects[i].x0+uv[0]*W_(rects[i]),y:rects[i].y0+uv[1]*H_(rects[i])});
-  const ZR=z=>{ const a=P(z.panel,z.rect.slice(0,2)), b=P(z.panel,z.rect.slice(2)); return RC(a.x,a.y,b.x,b.y); };
+  const ov=items.ov||{}; Object.keys(zones).forEach(k=>{ zones[k]._id=k; });
+  const ZR=z=>{ const q=ov[z._id]||z.rect, a=P(z.panel,q.slice(0,2)), b=P(z.panel,q.slice(2)); return RC(a.x,a.y,b.x,b.y); };
   const tw=(s,fs)=>{ x.font=dabFont(true,fs); return x.measureText(s).width; };
   const wrap=(lines,fs,maxw)=>{ const out=[]; lines.forEach(ln=>{ let cur=""; ln.split(/\s+/).forEach(w=>{ const t=(cur+" "+w).trim(); if(tw(t,fs)<=maxw||!cur) cur=t; else{ out.push(cur); cur=w; } }); out.push(cur); }); return out; };
   const fitIn=(lines,r,fmax,fmin)=>{ for(let fs=fmax;fs>=fmin;fs-=0.5){ const w=wrap(lines,fs,W_(r)-12); if(w.length*fs*1.22+8<=H_(r)&&w.every(l=>tw(l,fs)<=W_(r)-8)) return [fs,w]; } return [null,null]; };
@@ -2676,7 +2677,11 @@ function dabMarkup(x,zones,items,rects,S){
   Object.keys(zones).forEach(zid=>{ const z=zones[zid]; if(z.type!=="nogo"||!rects[z.panel]) return; const r=ZR(z); let [fs,w]=fitIn([z.label.replace(" - ",": ")],r,15*S,6*S); if(!fs){ fs=6*S; w=wrap([z.label],fs,W_(r)-10); } box(r,w,fs,NOGO); occ[z.panel].push(r); });
   const zcol=its=>{ const t=[...new Set(its.map(i=>i.trade))]; return t.length===1?dabColour(t[0]):MULTI; };
   const callZone={};
-  Object.keys(byZone).forEach(zid=>{ const its=byZone[zid], z=zones[zid], i=z.panel, lines=its.map(it=>it.label); let r=z.type==="box"?ZR(z):null, fs=null, w=null;
+  // Crane/pump set-ups, storage yards and delivery zones are always drawn at their full marked size and never move.
+  Object.keys(byZone).filter(zid=>DAB_FIXED.test(zid)&&zones[zid].type!=="line").forEach(zid=>{ const its=byZone[zid], z=zones[zid], i=z.panel, lines=its.map(it=>it.label), q=ZR(z), r=RC(q.x0+1,q.y0+1,q.x1-1,q.y1-1);
+    let [fs,w]=fitIn(lines,r,14*S,4.5*S); if(!fs){ fs=4.5*S; w=wrap(lines,fs,W_(r)-12); const mx=Math.max(1,Math.floor((H_(r)-8)/(fs*1.22))); if(w.length>mx){ w=w.slice(0,mx); w[mx-1]=w[mx-1].replace(/.{0,2}$/,"…"); } }
+    occ[i].push(r); box(r,w,fs,zcol(its)); delete byZone[zid]; });
+  Object.keys(byZone).forEach(zid=>{ const its=byZone[zid], z=zones[zid], i=z.panel, lines=its.map(it=>it.label); let r=z.type!=="line"?ZR(z):null, fs=null, w=null;
     if(r) [fs,w]=fitIn(lines,r,14*S,8.5*S);
     if(r&&W_(r)>100*S&&(fs===null||fs<10.5*S)){ fs=10.5*S; const bw=Math.min(W_(r)>=150*S?W_(r):250*S,rects[i].x1-r.x0-6); w=wrap(lines,fs,bw-12); r=RC(r.x0,r.y0,r.x0+bw,r.y0+10); }
     if(fs){ r=RC(r.x0,r.y0,r.x0+Math.min(W_(r),Math.max(...w.map(l=>tw(l,fs)))+12),r.y0+w.length*fs*1.22+8);
@@ -2686,7 +2691,7 @@ function dabMarkup(x,zones,items,rects,S){
     else callZone[zid]=its; });
   const targets={};
   Object.keys(callZone).forEach(zid=>{ const z=zones[zid], i=z.panel, col=zcol(callZone[zid]);
-    if(z.type==="box"){ const r=ZR(z); occ[i].push(r); x.globalAlpha=OP; x.fillStyle=col; x.fillRect(r.x0,r.y0,W_(r),H_(r)); x.globalAlpha=1; targets[zid]=["rect",r]; }
+    if(z.type!=="line"){ const r=ZR(z); occ[i].push(r); x.globalAlpha=OP; x.fillStyle=col; x.fillRect(r.x0,r.y0,W_(r),H_(r)); x.globalAlpha=1; targets[zid]=["rect",r]; }
     else{ const lc=(zid.indexOf("SCAFFOLD")>=0||col===MULTI)?rgbS(z.colour):col, segs=[];
       (z.paths||[]).forEach(path=>{ const pts=path.map(v=>P(i,v)); x.strokeStyle=lc; x.lineWidth=6*Math.max(S,0.8); x.lineJoin="round"; x.lineCap="butt"; x.beginPath(); pts.forEach((p,k)=>k?x.lineTo(p.x,p.y):x.moveTo(p.x,p.y)); x.stroke();
         for(let k=0;k+1<pts.length;k++){ const p=pts[k], q=pts[k+1]; segs.push([p,q]); occ[i].push(RC(Math.min(p.x,q.x)-4,Math.min(p.y,q.y)-4,Math.max(p.x,q.x)+4,Math.max(p.y,q.y)+4)); } });
@@ -2716,7 +2721,36 @@ function dabMarkup(x,zones,items,rects,S){
     box(c,choice,fs,pd.col,leaders); });
   return unplaced;
 }
-function dabItems(plan,zones,only){ const out=[]; plan.rows.forEach((r,n)=>{ const zs=(r[3]||[]).filter(z=>zones[z]&&(!only||zones[z].panel===only)); if(zs.length) out.push({trade:r[0],zones:zs,label:(n+1)+". "+r[0]+": "+String(r[1]).toUpperCase()}); }); return out; }
+// A delivery line written as "7:30am: Bldg F - Reo - Horizone - Crane" (the last part only when the crane lifts it).
+function dabParseDelivery(line){
+  let t=String(line).trim(), time="", m=/^\s*(\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm)|all\s*day|am\s*[-\/]\s*pm|am|pm)\s*[:\-–]\s*/i.exec(t);
+  if(m){ time=m[1].replace(/\s+/g,"").toLowerCase(); t=t.slice(m[0].length); }
+  const parts=t.split(/\s+[-–]\s+|\s*–\s*/).map(v=>v.trim()).filter(Boolean), bl=[];
+  if(parts.length&&/\b(bldg|building|blg)s?\b/i.test(parts[0])){ const rest=parts[0].replace(/\b(bldg|building|blg)s?\b/ig," "); (rest.match(/\b[EF]\b/ig)||[]).forEach(c=>{ c=c.toUpperCase(); if(!bl.includes(c)) bl.push(c); }); if(bl.length) parts.shift(); }
+  let crane=false; if(parts.length&&/^(for\s+)?(the\s+)?crane(\s+lift)?$/i.test(parts[parts.length-1])){ crane=true; parts.pop(); }
+  return {raw:String(line).trim(),time:time,bldgs:bl,item:parts[0]||"",company:parts.slice(1).join(" - "),crane:crane};
+}
+const DAB_FIXED=/CRANE\/PUMP SET-UP|STORAGE YARD|DELIVERY \(/;
+// Rows plus deliveries as photo labels, with the crane box narrowed where a delivery box sits beside it.
+function dabPhotoPlan(plan,zones){
+  const items=[], ov={}, notes=[];
+  plan.rows.forEach((r,n)=>{ const zs=(r[3]||[]).filter(z=>zones[z]); if(zs.length) items.push({trade:r[0],zones:zs,label:(n+1)+". "+r[0]+": "+String(r[1]).toUpperCase()}); });
+  const plant={E:{crane:false,pump:false},F:{crane:false,pump:false}};
+  plan.rows.forEach(r=>["E","F"].forEach(b=>{ if((r[3]||[]).includes("GF:BLDG "+b+" CRANE/PUMP SET-UP")){ if(/pump/i.test(r[0]+" "+r[1])) plant[b].pump=true; else plant[b].crane=true; } }));
+  const yard={E:"GF:BLDG E MAIN STORAGE YARD",F:"GF:BLDG F STORAGE YARD"};
+  (plan.deliveries||[]).forEach(line=>{ const d=dabParseDelivery(line);
+    if(!d.bldgs.length||!d.item){ notes.push("Delivery not placed on the photo (no building given): "+d.raw); return; }
+    const label="DELIVERY"+(d.time?" "+d.time:"")+": "+(d.item+(d.company?" ("+d.company+")":"")).toUpperCase();
+    d.bldgs.forEach(b=>{ const cz="GF:BLDG "+b+" DELIVERY (CRANE)", nz="GF:BLDG E DELIVERY (NO CRANE)", pz="GF:BLDG "+b+" CRANE/PUMP SET-UP"; let zid=null;
+      if(d.crane&&!plant[b].crane) notes.push("Delivery marked for the crane, but no crane is assigned to Bldg "+b+": "+d.raw);
+      if(d.crane&&plant[b].crane&&!plant[b].pump&&zones[cz]&&zones[pz]){ zid=cz;
+        const c=zones[pz].rect, dz=zones[cz].rect, g=0.004; ov[pz]=((dz[0]+dz[2])/2>(c[0]+c[2])/2)?[c[0],c[1],dz[0]-g,c[3]]:[dz[2]+g,c[1],c[2],c[3]]; }
+      else if(!plant.E.crane&&!plant.E.pump&&zones[nz]) zid=nz;
+      else if(zones[yard[b]]) zid=yard[b];
+      if(zid) items.push({trade:"DELIVERIES",zones:[zid],label:label}); else notes.push("Delivery not placed on the photo: "+d.raw); }); });
+  items.ov=ov; items.notes=notes; return items;
+}
+function dabItems(plan,zones,only){ const all=dabPhotoPlan(plan,zones), out=all.map(it=>({trade:it.trade,label:it.label,zones:it.zones.filter(z=>!only||zones[z].panel===only)})).filter(it=>it.zones.length); out.ov=all.ov; out.notes=all.notes; return out; }
 function dabDayLong(iso,short){ const d=mbDate(iso); return short?(MB_DAY[d.getDay()]+" "+String(d.getDate()).padStart(2,"0")+" "+MB_MON[d.getMonth()]+" "+d.getFullYear()):(MB_DAYL[d.getDay()]+" "+String(d.getDate()).padStart(2,"0")+" "+MB_MONL[d.getMonth()]+" "+d.getFullYear()); }
 
 // ---- the board itself, 2560 x 1200 (same layout as the boards Claude has been issuing)
@@ -2759,12 +2793,12 @@ function dabRender(plan,K){
   DAB_LEVELS.forEach((lv,i)=>{ const x0=RX+(i%2)*(cw+gap), tt=T0+Math.floor(i/2)*(ph+gap), px=x0+strip; fill(lv[2],x0,tt,strip,ph);
     x.save(); x.translate(x0+strip/2+5,tt+ph/2); x.rotate(-Math.PI/2); dabText(x,lv[0],0,0,true,15,DAB_G,"center"); x.restore();
     x.drawImage(im,px,tt,pw,ph); rects[lv[1]]={x0:px,y0:tt,x1:px+pw,y1:tt+ph}; });
-  const unplaced=dabMarkup(x,zones,dabItems(plan,zones),rects,pw/916);
+  const photoItems=dabItems(plan,zones), unplaced=dabMarkup(x,zones,photoItems,rects,pw/916);
   DAB_LEVELS.forEach((lv,i)=>{ const x0=RX+(i%2)*(cw+gap), tt=T0+Math.floor(i/2)*(ph+gap); x.strokeStyle=lv[2]; x.lineWidth=2.5; x.strokeRect(x0,tt,cw,ph); });
   dabText(x,"Numbers on the photos match the Daily Task list. "+(plan.photo_note||"")+". Source: "+(plan.source||"meeting draft")+".",W-40,1195.5,false,11,DAB_TEAL,"right");
   const bw=(RW-10)/2; [[RX,"Permits",plan.permits||[]],[RX+bw+10,"Deliveries",plan.deliveries||[]]].forEach(b=>{ box(b[0],HT,bw,HRW_H,b[1]); let ty=HT+36;
     b[2].forEach(it=>{ dabWrap(x,it,false,16,bw-20).forEach(l=>{ dabText(x,l,b[0]+10,ty+14,false,16,DAB_INK); ty+=21; }); ty+=6; }); });
-  return {canvas:c,leftClip:[27,113,RX-7-27,1178-113],unplaced:unplaced};
+  return {canvas:c,leftClip:[27,113,RX-7-27,1178-113],unplaced:unplaced,notes:photoItems.notes||[]};
 }
 // ---- print pack pages (A3)
 function dabLevelPage(plan,lv,K){
@@ -2825,7 +2859,7 @@ function dabPhotoNote(){ const m=DAB.photoMeta; if(!m) return "Drone photo"; con
 // ---- plan: tasks to photo zones and the high risk works, by one API call
 function dabSig(){ return JSON.stringify([trades.map(t=>[t.name,(t.activities||"").trim(),t.results||""]),(typeof wxCurrent==="function")?wxCurrent():"",Object.keys(dabZones()||{}).length]); }
 function dabPlanPrompt(){
-  const zones=dabZones(), zl=Object.keys(zones).filter(k=>zones[k].type!=="nogo").map(k=>k+" ["+(zones[k].type==="line"?"line":"area")+"]").join("\n"), wx=wxCurrent();
+  const zones=dabZones(), zl=Object.keys(zones).filter(k=>zones[k].type!=="nogo"&&zones[k].type!=="delivery").map(k=>k+" ["+(zones[k].type==="line"?"line":"area")+"]").join("\n"), wx=wxCurrent();
   const cards=trades.filter(t=>(t.activities||"").trim()).map(t=>"CONTRACTOR: "+dabTradeName(t.name)+"\nTASKS (one per line):\n"+t.activities.trim()+"\nZONES ON THE DRAFT: "+((t.locations||[]).join("; ")||"none given")+"\nCONTROLS ALREADY GENERATED:\n"+(t.results||"(none)")).join("\n\n---\n\n");
   return "You are preparing the Lipman Daily Activities Board for The Ponds High School (Buildings E and F). Below are the day's contractors in order, their tasks, and their hazard controls.\n\n"
   +"PART 1, rows. Return one row per task line, in the same order, with the contractor name exactly as given and the task wording unchanged (trim only). For each row give 'zone_text' (short, e.g. 'Bldg F, GF-L1' or 'Bldg E Main Storage Yard') and 'zones': the ids from the PHOTO ZONE LIST that the task physically occupies. The id prefix is the photo the zone is drawn on (GF, L1, L2, L3). Rules: "
@@ -2842,9 +2876,12 @@ async function dabMakePlan(){
   const data=await resp.json(); if(data.stop_reason==="max_tokens") throw new Error("The board plan reply was longer than the app allows. Press Build again; if it repeats, tell Claude.");
   let raw=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n").replace(/```json|```/g,"").trim(); const a=raw.indexOf("{"), z=raw.lastIndexOf("}"); if(a>=0&&z>a) raw=raw.slice(a,z+1);
   let p; try{ p=JSON.parse(raw); }catch(e){ throw new Error("Could not read the board plan reply."); }
-  const zones=dabZones(), day=loadDay(), dr=day.draft||{}, split=s=>String(s||"").split(/\n|;\s+/).map(v=>v.trim()).filter(v=>v&&!/^(none|nil|n\/a|no)\.?$/i.test(v));
-  const dropped=[]; const rows=(p.rows||[]).map(r=>{ const zs=(r.zones||[]).filter(zid=>{ const ok=zones[zid]&&zones[zid].type!=="nogo"; if(!ok) dropped.push(zid); return ok; }); return [dabTradeName(r.trade),String(r.task||"").trim(),String(r.zone_text||"").trim(),zs]; });
+  const zones=dabZones(), day=loadDay(), dr=day.draft||{}, split=s=>String(s||"").split(/\\n|\n|;\s+/).map(v=>v.trim()).filter(v=>v&&!/^(none|nil|n\/a|no)\.?$/i.test(v));
+  const dropped=[]; const rows=(p.rows||[]).map(r=>{ const zs=(r.zones||[]).filter(zid=>{ const ok=zones[zid]&&zones[zid].type!=="nogo"&&zones[zid].type!=="delivery"; if(!ok) dropped.push(zid); return ok; }); return [dabTradeName(r.trade),String(r.task||"").trim(),String(r.zone_text||"").trim(),zs]; });
   if(!rows.length) throw new Error("The board plan came back empty.");
+  // Shared edgeboard line (formwork + Arrow balustrade cast-in): Arrow takes it whenever Arrow has edgeboard work on it; otherwise it stays with the formworker.
+  { const shared={}; rows.forEach(r=>r[3].forEach(z=>{ if(/EDGEBOARD \(FW \+ ARROW\)/.test(z)&&/^ARROW/.test(r[0])) shared[z]=1; }));
+    rows.forEach(r=>{ if(!/^ARROW/.test(r[0])) r[3]=r[3].filter(z=>!shared[z]); if(/^ARROW/.test(r[0])) r[3]=r[3].filter(z=>!/EDGEBOARD \(FW ONLY\)/.test(z)); }); }
   // keep the draft's contractor order even if the reply strayed
   const ord={}; trades.forEach((t,i)=>{ ord[dabTradeName(t.name)]=i; }); rows.forEach((r,i)=>r._i=i); rows.sort((a,b)=>((ord[a[0]]==null?999:ord[a[0]])-(ord[b[0]]==null?999:ord[b[0]]))||a._i-b._i);
   return {for_date:document.getElementById("siteDate").value,source:dr.ref||dr.name||"meeting draft",photo_note:dabPhotoNote(),weather:wxCurrent(),rows:rows,
@@ -2875,7 +2912,7 @@ async function dabBuild(replan){
     [["dabDl1",n1,pdf1],["dabDl2",n2,pdf2]].forEach(o=>{ if(DAB.urls[o[0]]) URL.revokeObjectURL(DAB.urls[o[0]]); DAB.urls[o[0]]=URL.createObjectURL(o[2]); const a=document.getElementById(o[0]); a.href=DAB.urls[o[0]]; a.download=o[1]; a.textContent="⬇ "+o[1]; a.style.display="inline-flex"; });
     const pv=document.getElementById("dabPrev"); pv.width=1600; pv.height=750; pv.getContext("2d").drawImage(b.canvas,0,0,1600,750); pv.style.display="block";
     const noZone=plan.rows.map((r,i)=>r[3].length?null:(i+1)+". "+r[0]).filter(Boolean);
-    st.style.color="var(--success)"; st.innerHTML="Board and "+pages.length+"-page print pack built."+pourNote+(noZone.length?" <span style='color:#8A6100'>Not marked on a photo (no matching zone): "+escH(noZone.join(", "))+".</span>":"")+(b.unplaced.length?" <span style='color:#8A6100'>No room for a label: "+escH(b.unplaced.join("; "))+".</span>":"")+(plan.weather?"":" <span style='color:#8A6100'>No weather entered in step 2, so the weather box is blank.</span>");
+    st.style.color="var(--success)"; st.innerHTML="Board and "+pages.length+"-page print pack built."+pourNote+(noZone.length?" <span style='color:#8A6100'>Not marked on a photo (no matching zone): "+escH(noZone.join(", "))+".</span>":"")+(b.notes&&b.notes.length?" <span style='color:#8A6100'>"+escH(b.notes.join(" | "))+"</span>":"")+(b.unplaced.length?" <span style='color:#8A6100'>No room for a label: "+escH(b.unplaced.join("; "))+".</span>":"")+(plan.weather?"":" <span style='color:#8A6100'>No weather entered in step 2, so the weather box is blank.</span>");
     saveFiles([{blob:pdf1,name:n1,kind:"dab",date:plan.for_date},{blob:pdf2,name:n2,kind:"dab",date:plan.for_date}],st);
     const d=loadDay(); d.dab={at:new Date().toISOString(),date:plan.for_date}; saveDay(d); renderNeeds(); btn.disabled=false; return true;
   }catch(e){ st.style.color="#B3261E"; st.textContent="Could not build the board: "+(e.message||e); btn.disabled=false; return false; }
