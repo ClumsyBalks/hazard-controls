@@ -457,7 +457,7 @@
 
 <main class="main">
   <div class="page-header">
-    <h1>TPHS daily prestart <span class="stage-tag">STAGING — combined app build</span> <span id="appBuild" style="font-size:11px;font-weight:400;opacity:.75;">version 18/11/2026 08:20</span></h1>
+    <h1>TPHS daily prestart <span class="stage-tag">STAGING — combined app build</span> <span id="appBuild" style="font-size:11px;font-weight:400;opacity:.75;">version 23/11/2026 15:50</span></h1>
     <p>Three steps a day. Each tab lists what it needs and what you get. The live app is unchanged.</p>
   </div>
   <div class="warn-banner" id="warnBanner">⚠ No API key set. Enter your Anthropic API key in the sidebar.</div>
@@ -2572,7 +2572,7 @@ function fwRender(prog,startISO,S){
   const W=1190.55,H=841.89, c=document.createElement("canvas"); c.width=Math.round(W*S); c.height=Math.round(H*S);
   const x=c.getContext("2d"); x.scale(S,S); x.fillStyle="#fff"; x.fillRect(0,0,W,H); x.textBaseline="alphabetic";
   const F=(sz,b,i)=>{ x.font=(i?"italic ":"")+(b?"bold ":"")+sz+"px Helvetica, Arial, sans-serif"; }, tw=t=>x.measureText(t).width;
-  const start=mbDate(startISO), weeks=[mbAdd(start,7),start], acts=fwActs(prog), blds=Object.keys(acts).sort();
+  const start=mbDate(startISO), weeks=[start,mbAdd(start,7)], acts=fwActs(prog), blds=Object.keys(acts).sort();
   const plan={}; let maxl=1;
   weeks.forEach((w,wi)=>{ let tot=0; blds.forEach(k=>{
     const w0=mbISO(w), w5=mbISO(mbAdd(w,5)), segs=[];
