@@ -457,7 +457,7 @@
 
 <main class="main">
   <div class="page-header">
-    <h1>TPHS daily prestart <span class="stage-tag">STAGING — combined app build</span> <span id="appBuild" style="font-size:11px;font-weight:400;opacity:.75;">version 23/11/2026 15:50</span></h1>
+    <h1>TPHS daily prestart <span class="stage-tag">STAGING — combined app build</span> <span id="appBuild" style="font-size:11px;font-weight:400;opacity:.75;">version 25/11/2026 11:50</span></h1>
     <p>Three steps a day. Each tab lists what it needs and what you get. The live app is unchanged.</p>
   </div>
   <div class="warn-banner" id="warnBanner">⚠ No API key set. Enter your Anthropic API key in the sidebar.</div>
@@ -2527,10 +2527,10 @@ function mbRenderBoard(S){
   const W=2560,H=1200, today=mbDate(document.getElementById("mbDate").value), prog=loadProgram();
   const c=document.createElement("canvas"); c.width=W*S; c.height=H*S; const ctx=c.getContext("2d"); ctx.scale(S,S);
   const g=mbG(ctx,H); g.rect(0,0,W,H,MBC.BG);
-  const m=12,gap=10,strip=46, sh=H-2*m, ph=(sh-2*gap)/3, aspect=MB.REFW/MB.REFH, sw=strip+ph*aspect;
-  [["GROUND FLOOR","#FF9F1C"],["LEVEL 1","#2EC4B6"],["LEVEL 2","#C77DFF"]].forEach((lv,i)=>{
+  const m=12,gap=10,strip=46, sh=H-2*m, ph=(sh-3*gap)/4, aspect=MB.REFW/MB.REFH, sw=strip+ph*aspect;
+  [["GROUND FLOOR","#FF9F1C"],["LEVEL 1","#2EC4B6"],["LEVEL 2","#C77DFF"],["LEVEL 3","#FF6B8B"]].forEach((lv,i)=>{
     const y=m+sh-(i+1)*ph-i*gap; g.rect(m,y,strip,ph,lv[1]);
-    ctx.save(); ctx.translate(m+strip/2+11,H-(y+ph/2)); ctx.rotate(-Math.PI/2); ctx.font="bold 32px Helvetica, Arial, sans-serif"; ctx.fillStyle="#0B1220"; ctx.textAlign="center"; ctx.fillText(lv[0],0,0); ctx.restore();
+    ctx.save(); ctx.translate(m+strip/2+11,H-(y+ph/2)); ctx.rotate(-Math.PI/2); ctx.font="bold 30px Helvetica, Arial, sans-serif"; ctx.fillStyle="#0B1220"; ctx.textAlign="center"; ctx.fillText(lv[0],0,0); ctx.restore();
     ctx.imageSmoothingQuality="high"; ctx.drawImage(MB.aligned,m+strip,H-y-ph,sw-strip,ph);
     g.rect(m+2,y+2,sw-4,ph-4,null,lv[1],4); });
   const rx=m+sw+14, rw=W-rx-m, th=58;
@@ -2863,7 +2863,9 @@ function dabPlanPrompt(){
   const cards=trades.filter(t=>(t.activities||"").trim()).map(t=>"CONTRACTOR: "+dabTradeName(t.name)+"\nTASKS (one per line):\n"+t.activities.trim()+"\nZONES ON THE DRAFT: "+((t.locations||[]).join("; ")||"none given")+"\nCONTROLS ALREADY GENERATED:\n"+(t.results||"(none)")).join("\n\n---\n\n");
   return "You are preparing the Lipman Daily Activities Board for The Ponds High School (Buildings E and F). Below are the day's contractors in order, their tasks, and their hazard controls.\n\n"
   +"PART 1, rows. Return one row per task line, in the same order, with the contractor name exactly as given and the task wording unchanged (trim only). For each row give 'zone_text' (short, e.g. 'Bldg F, GF-L1' or 'Bldg E Main Storage Yard') and 'zones': the ids from the PHOTO ZONE LIST that the task physically occupies. The id prefix is the photo the zone is drawn on (GF, L1, L2, L3). Rules: "
-  +"walls, columns, stairs and scaffold that run between two levels are shown on the photo of the level they stand on (GF-L1 work on GF, L1-L2 work on L1); slab works (deck formwork, reo, post-tension stressing, conduits, pours) go on that level's SLAB zone; cranes and concrete pumps go on the ground floor CRANE/PUMP SET-UP zone of that building; edgeboard formwork uses the EDGEBOARD lines for that building and level (formwork: both the FW ONLY and FW + ARROW lines; cast-in brackets by Arrow: the FW + ARROW line only); post-tension live ends or live anchors use the PT LIVE ENDS lines; scaffold day N uses the SCAFFOLD DAY N line of that building; storage yard tasks use the storage yard zone. Use only ids from the list, spelled exactly. If nothing in the list fits (gates, traffic control, whole-site tasks), return an empty list; do not force a fit.\n\n"
+  +"walls, columns, stairs and scaffold that run between two levels are shown on the photo of the level they stand on (GF-L1 work on GF, L1-L2 work on L1); slab works (deck formwork, reo, post-tension stressing, conduits, pours) go on that level's SLAB zone; cranes and concrete pumps go on the ground floor CRANE/PUMP SET-UP zone of that building; edgeboard formwork uses the EDGEBOARD lines for that building and level (formwork: both the FW ONLY and FW + ARROW lines; cast-in brackets by Arrow: the FW + ARROW line only); post-tension live ends or live anchors use the PT LIVE ENDS lines; scaffold day N uses the SCAFFOLD DAY N line of that building; storage yard tasks use the storage yard zone. "
+  +"Level 3 and above Level 2: Stair 2 and the lift belong to Bldg F from Level 2 upwards. Level 3 slab works for Bldg F (any grid, including Grid I-P and Grid G-I) all go on L3:BLDG F SLAB, and so do columns L3 to roof; there are no walls from Level 3 to the roof. Level 3 formwork edgeboards: 'Grid I-P' uses the GRID I-P line, 'Grid G-I' uses the GRID G-I line, and if no grid is given use both, plus the FW + ARROW line. The lift over-run (also written as lift walls L2 to roof or L3 to roof) goes on L3:LIFT OVER-RUN WALLS. Stair landings at Level 3 use the STAIR n LANDING zones. Scaffold from Level 2 to Level 3 is shown on the Level 2 photo: use L2:F SCAFFOLD DAY n, including DAY 4. "
+  +"Use only ids from the list, spelled exactly. If nothing in the list fits (gates, traffic control, whole-site tasks), return an empty list; do not force a fit.\n\n"
   +"PART 2, hrw. Choose the highest-risk works of the day, at most 5, most serious first (for example crane lifts, work at height, scaffold erection, mobile plant, excavation, stressing, concrete pumping). For each give 'title' (the work, where, and the contractor in brackets), 'why' (2 to 6 words naming the hazard category) and 'controls' (one paragraph, at most 60 words, condensed from that contractor's controls above; add nothing that is not supported by them)."
   +(wx?" The forecast for the day is: "+wx+" Where it creates a real risk for one of these works, end that item's controls with the specific stop-work or make-safe trigger.":"")
   +"\n\nAustralian English. No em-dashes. Return STRICT JSON only, no markdown: {\"rows\":[{\"trade\":\"...\",\"task\":\"...\",\"zone_text\":\"...\",\"zones\":[\"...\"]}],\"hrw\":[{\"title\":\"...\",\"why\":\"...\",\"controls\":\"...\"}]}\n\nPHOTO ZONE LIST:\n"+zl+"\n\nCONTRACTORS:\n\n"+cards;
@@ -2881,7 +2883,7 @@ async function dabMakePlan(){
   if(!rows.length) throw new Error("The board plan came back empty.");
   // Shared edgeboard line (formwork + Arrow balustrade cast-in): Arrow takes it whenever Arrow has edgeboard work on it; otherwise it stays with the formworker.
   { const shared={}; rows.forEach(r=>r[3].forEach(z=>{ if(/EDGEBOARD \(FW \+ ARROW\)/.test(z)&&/^ARROW/.test(r[0])) shared[z]=1; }));
-    rows.forEach(r=>{ if(!/^ARROW/.test(r[0])) r[3]=r[3].filter(z=>!shared[z]); if(/^ARROW/.test(r[0])) r[3]=r[3].filter(z=>!/EDGEBOARD \(FW ONLY\)/.test(z)); }); }
+    rows.forEach(r=>{ if(!/^ARROW/.test(r[0])) r[3]=r[3].filter(z=>!shared[z]); if(/^ARROW/.test(r[0])) r[3]=r[3].filter(z=>!/EDGEBOARD.*\(FW ONLY\)/.test(z)); }); }
   // keep the draft's contractor order even if the reply strayed
   const ord={}; trades.forEach((t,i)=>{ ord[dabTradeName(t.name)]=i; }); rows.forEach((r,i)=>r._i=i); rows.sort((a,b)=>((ord[a[0]]==null?999:ord[a[0]])-(ord[b[0]]==null?999:ord[b[0]]))||a._i-b._i);
   return {for_date:document.getElementById("siteDate").value,source:dr.ref||dr.name||"meeting draft",photo_note:dabPhotoNote(),weather:wxCurrent(),rows:rows,
@@ -2904,7 +2906,7 @@ async function dabBuild(replan){
     const bj=await dabJpeg(b.canvas,0.9), n1="TPHS M3 Daily Activities Board "+ymd+".pdf", pdf1=pdfFromJpegs([{jpg:bj,pxW:b.canvas.width,pxH:b.canvas.height,pageW:2560,pageH:1200}],n1.replace(".pdf",""));
     st.textContent="Drawing the print pack…"; await new Promise(r=>setTimeout(r,30));
     const pages=[], add=async(c,w,h)=>pages.push({jpg:await dabJpeg(c,0.9),pxW:c.width,pxH:c.height,pageW:w,pageH:h});
-    for(const lv of DAB_LEVELS.slice(0,3)) await add(dabLevelPage(plan,lv,2.6),1190.55,841.89);
+    for(const lv of DAB_LEVELS) await add(dabLevelPage(plan,lv,2.6),1190.55,841.89);
     await add(dabLeftPage(b.canvas,b.leftClip,KB,3),841.89,1190.55);
     const prog=loadProgram(); let pourNote="";
     if(prog){ const pc=dabPoursPage(prog,plan.for_date,2.6), pj=await dabJpeg(pc,0.9); for(let i=0;i<2;i++) pages.push({jpg:pj,pxW:pc.width,pxH:pc.height,pageW:1190.55,pageH:841.89}); } else pourNote=" No programme is loaded, so the two pour sheets were left out.";
