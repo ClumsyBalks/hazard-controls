@@ -3063,16 +3063,36 @@ function renderNeeds(){
   const _aw=applyWhiteboard;
   applyWhiteboard=function(data){
     const sig=t=>(t.activities||"").trim()+"|"+(t.locations||[]).slice().sort().join(";");
-    const before={}; trades.forEach(t=>{ if(t.results) before[t.name]={sig:sig(t),results:t.results}; });
+    const before={}; trades.forEach(t=>{ if(t.results) before[t.name]={sig:sig(t),results:t.results,wx:t.wx||""}; });
     const r=_aw.apply(this,arguments);
     try{
       captureActivities(); let kept=0;
-      trades.forEach(t=>{ const o=before[t.name]; if(o&&!t.results&&o.sig===sig(t)){ t.results=o.results; kept++; } });
+      const wxNow=(typeof wxCurrent==="function")?wxCurrent():"";
+      // Keep an unchanged card's controls only if the weather they were generated under is still
+      // current — otherwise leave the card empty so genMissing() regenerates it with the new forecast.
+      trades.forEach(t=>{ const o=before[t.name]; if(o&&!t.results&&o.sig===sig(t)&&o.wx===wxNow){ t.results=o.results; t.wx=o.wx; kept++; } });
       if(kept) renderTrades();
       chainAfterExtract(kept, Array.isArray(data&&data.uncertain)&&data.uncertain.length>0);
     }catch(e){}
     try{ const f=(document.getElementById("wbFileInput").files||[])[0]; const d=loadDay(); d.draft={name:f?f.name:"meeting draft",at:new Date().toISOString(),date:(data&&data.date)||"",deliveries:(data&&data.deliveries)||"",permits:(data&&data.permits)||"",ref:((/MEET-\d+/i.exec(f?f.name:"")||[""])[0]).toUpperCase()}; saveDay(d); renderNeeds(); }catch(e){}
     return r;
+  };
+  // Stamp each card with the weather its controls were generated under, so the draft reader
+  // can tell stale-weather results from current ones.
+  const _g1=generateOne;
+  generateOne=async function(id){
+    const r=await _g1.apply(this,arguments);
+    try{ const t=trades.find(x=>x.id===id); if(t&&t.results) t.wx=(typeof wxCurrent==="function")?wxCurrent():""; }catch(e){}
+    return r;
+  };
+  // If a forecast screenshot is still being read when the draft button is pressed, wait for it
+  // so the controls include the weather without a second regeneration.
+  const _ew=extractWhiteboard;
+  extractWhiteboard=async function(){
+    if(window._wxPending){
+      try{ chainSet("Waiting for the forecast read to finish, so the controls include it…"); await window._wxPending; chainSet(""); }catch(e){}
+    }
+    return _ew.apply(this,arguments);
   };
   window.wxCurrent=function(){ const w=loadDay().weather; return (w&&w.text&&Date.now()-new Date(w.at).getTime()<20*3600*1000)?w.text:""; };
   window.wxSave=function(){ const v=document.getElementById("wxText").value.trim(), d=loadDay(), had=(d.weather&&d.weather.text)||"";
@@ -3083,6 +3103,7 @@ function renderNeeds(){
   window.onWxFile=async function(inp){
     const f=inp.files&&inp.files[0]; if(!f) return; const st=document.getElementById("wxStatus");
     const apiKey=(localStorage.getItem("tphs_apikey")||"").trim(); if(!apiKey){ st.textContent="Set the API key first, or type the forecast into the box."; return; }
+    let _wxDone; window._wxPending=new Promise(res=>{ _wxDone=res; });
     document.getElementById("wxLabel").textContent="🌦 "+f.name; st.textContent="Reading the forecast…";
     try{
       const img=await new Promise((res,rej)=>{ const im=new Image(), url=URL.createObjectURL(f); im.onload=()=>{ URL.revokeObjectURL(url); const sc=Math.min(1,2000/Math.max(im.width,im.height)), c=document.createElement("canvas"); c.width=Math.round(im.width*sc); c.height=Math.round(im.height*sc); const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,c.width,c.height); x.drawImage(im,0,0,c.width,c.height); res(c.toDataURL("image/jpeg",0.9).split(",")[1]); }; im.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error("Could not open that file as an image.")); }; im.src=url; });
@@ -3094,7 +3115,7 @@ function renderNeeds(){
       if(!text) throw new Error("Empty reply");
       document.getElementById("wxText").value=text; wxSave(); if(!document.getElementById("wxStatus").innerHTML.includes("button")) st.textContent="Forecast read. Check the wording in the box and correct it if needed.";
     }catch(e){ st.textContent="Could not read the screenshot ("+(e.message||"error")+"). Type the forecast into the box instead."; }
-    inp.value="";
+    inp.value=""; _wxDone(); window._wxPending=null;
   };
   window.chainSet=function(html,kind){ const el=document.getElementById("chainStatus"); if(!el) return; el.style.display=html?"block":"none"; el.style.borderLeft="4px solid "+(kind==="ok"?"var(--success)":kind==="warn"?"#E6A700":"#0B5E58"); el.innerHTML=html; };
   window.genMissing=async function(){
