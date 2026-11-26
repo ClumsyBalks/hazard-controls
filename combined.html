@@ -574,6 +574,18 @@
       <a id="fwDownload" class="btn btn-ghost" style="display:none;text-decoration:none;"></a></div>
     <div class="mb-status" id="fwStatus"></div>
     <canvas id="fwPrev" style="display:none;width:100%;border:1px solid var(--border);border-radius:6px;margin-top:8px;"></canvas>
+  </div>
+  <div class="trade-card mb-card">
+    <div class="field-label">Weekly team debrief deck <small>(Thursdays, for the PM)</small></div>
+    <div class="mb-status">Upload last week's debrief PowerPoint. Your three pages are rebuilt from the loaded programme and the latest drone photo: the two-week look ahead picture, the long-term look ahead dates, and the site overview photo. Every other page is left exactly as the PM had it.</div>
+    <div class="mb-row">
+      <div class="upload-btn-wrap mb-file"><div class="upload-btn" id="dbDeckLabel">📎 Choose last week's deck (.pptx)</div><input type="file" accept=".pptx" onchange="onDbDeck(this)"></div>
+      <label class="field-label" for="dbStart">Look ahead from (Monday)</label><input type="date" id="dbStart">
+      <button class="btn btn-primary" id="dbBuildBtn" onclick="dbBuild()" style="display:none;">Build updated deck</button>
+      <a id="dbDownload" class="btn btn-ghost" style="display:none;text-decoration:none;"></a>
+    </div>
+    <div id="dbMap"></div>
+    <div class="mb-status" id="dbStatus"></div>
   </div></div>
 </main>
 </div>
@@ -2310,9 +2322,16 @@ function programFromXml(text,fileName,today){
   const blds=Object.keys(B).sort().map(k=>({name:"BUILDING "+k,rows:B[k].rows}));
   if(!blds.length) throw new Error("No activities tagged to a single building were found between "+A+" and "+Z+".");
   pours.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.bldg<b.bldg?-1:1);
+  // Full-range task index (whole programme, not just the six-week window) for the weekly
+  // debrief deck's long-term look ahead. Building resolved from the task or nearest ancestor.
+  const index=[];
+  T.forEach(t=>{ if(!t.active||!t.start||!t.finish) return;
+    let b=t.bld; for(let p=t.parent;p>=0&&!/^[A-Z]$/.test(b);p=T[p].parent) b=T[p].bld;
+    index.push({n:t.name,b:/^[A-Z]$/.test(b)?b:"",s:t.start.slice(0,10),f:t.finish.slice(0,10),sum:t.sum?1:0});
+  });
   const src=(fileName||pxTag(head,"Name")||"Programme").replace(/\.xml$/i,"").replace(/_/g," ").replace(/^\d{8}\s+/,"");
   const rev=/Rev\s*\d+/i.exec(src);
-  return {source:src,short:rev?"Programme "+rev[0]:"",start:A,days:DAYS,trades:tr,buildings:blds,pours:pours,_skipped:skipped,_saved:pxTag(head,"LastSaved")};
+  return {source:src,short:rev?"Programme "+rev[0]:"",start:A,days:DAYS,trades:tr,buildings:blds,pours:pours,index:index.slice(0,6000),_skipped:skipped,_saved:pxTag(head,"LastSaved")};
 }
 
 function onProgramFile(inp){
@@ -2568,7 +2587,7 @@ function fwActs(prog){
     }); });
   return acts;
 }
-function fwRender(prog,startISO,S){
+function fwRender(prog,startISO,S,title){
   const W=1190.55,H=841.89, c=document.createElement("canvas"); c.width=Math.round(W*S); c.height=Math.round(H*S);
   const x=c.getContext("2d"); x.scale(S,S); x.fillStyle="#fff"; x.fillRect(0,0,W,H); x.textBaseline="alphabetic";
   const F=(sz,b,i)=>{ x.font=(i?"italic ":"")+(b?"bold ":"")+sz+"px Helvetica, Arial, sans-serif"; }, tw=t=>x.measureText(t).width;
@@ -2583,7 +2602,7 @@ function fwRender(prog,startISO,S){
     segs.forEach(s=>{ let i=lanes.findIndex(e=>e<s.a); if(i<0){ i=lanes.length; lanes.push(s.z); } else lanes[i]=s.z; s.lane=i; });
     plan[wi+k]={segs:segs,n:Math.max(lanes.length,1)}; tot+=Math.max(lanes.length,1); }); maxl=Math.max(maxl,tot); });
   const m=24, end=mbAdd(start,12), dmy=d=>String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
-  x.fillStyle="#000"; F(20,true); x.fillText("TPHS M3   FOREMAN WHITEBOARD PROGRAM",m,m+18);
+  x.fillStyle="#000"; F(20,true); x.fillText(title||"TPHS M3   FOREMAN WHITEBOARD PROGRAM",m,m+18);
   { const sub="Two weeks commencing Mon "+dmy(start)+" (to Sat "+dmy(end)+").  Source: "+prog.source+(prog._saved?", saved "+dmy(mbDate(prog._saved.slice(0,10)))+" "+prog._saved.slice(11,16):"")+".  Activity is written on its first day; the arrow runs to the end of its last day."; let fz=11; F(fz); while(tw(sub)>W-2*m&&fz>7){ fz-=0.5; F(fz); } x.fillText(sub,m,m+34); }
   const used={}; Object.keys(plan).forEach(k=>plan[k].segs.forEach(s=>used[s.col]=1));
   let lx=W-m; F(9); Object.keys(prog.trades).reverse().forEach(code=>{ const t=prog.trades[code]; if(!used[t[1]]) return;
@@ -2633,6 +2652,221 @@ async function fwBuild(){
     saveFiles([{blob:pdf,name:name,kind:"fw",date:v}],st);   // filed in the folder of the prestart date showing
   }catch(e){ st.style.color="#B3261E"; st.textContent="Could not build it: "+e.message; }
 }
+// ================= Weekly team debrief deck (Setup tab) =================
+// Rebuilds Cameron's three pages of the PM's weekly debrief .pptx: the two-week look
+// ahead picture, the long-term look ahead dates (from the programme's full-range task
+// index), and the site overview drone photo. All other slides pass through untouched.
+let CRC_T=null;
+function crc32(u8){ if(!CRC_T){ CRC_T=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?(0xEDB88320^(c>>>1)):(c>>>1); CRC_T[n]=c>>>0; } }
+  let c=0xFFFFFFFF; for(let i=0;i<u8.length;i++) c=CRC_T[(c^u8[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+async function zipEntryBytes(bytes,entry){
+  const comp=xlsxSliceEntry(bytes,entry);
+  if(entry.method===0) return new Uint8Array(comp);
+  const ds=new DecompressionStream("deflate-raw");
+  return new Uint8Array(await new Response(new Blob([comp]).stream().pipeThrough(ds)).arrayBuffer());
+}
+function zipBuild(files){ // files: [{name, data:Uint8Array}] -> stored (uncompressed) zip blob
+  const enc=new TextEncoder(), parts=[], cd=[]; let off=0;
+  files.forEach(f=>{ const nm=enc.encode(f.name), crc=crc32(f.data);
+    const lh=new Uint8Array(30+nm.length), dv=new DataView(lh.buffer);
+    dv.setUint32(0,0x04034b50,true); dv.setUint16(4,20,true);
+    dv.setUint32(14,crc,true); dv.setUint32(18,f.data.length,true); dv.setUint32(22,f.data.length,true);
+    dv.setUint16(26,nm.length,true); lh.set(nm,30);
+    parts.push(lh,f.data); cd.push({nm,crc,sz:f.data.length,off}); off+=lh.length+f.data.length; });
+  let cdSize=0; cd.forEach(e=>{ const h=new Uint8Array(46+e.nm.length), dv=new DataView(h.buffer);
+    dv.setUint32(0,0x02014b50,true); dv.setUint16(4,20,true); dv.setUint16(6,20,true);
+    dv.setUint32(16,e.crc,true); dv.setUint32(20,e.sz,true); dv.setUint32(24,e.sz,true);
+    dv.setUint16(28,e.nm.length,true); dv.setUint32(42,e.off,true); h.set(e.nm,46);
+    parts.push(h); cdSize+=h.length; });
+  const eo=new Uint8Array(22), dv=new DataView(eo.buffer);
+  dv.setUint32(0,0x06054b50,true); dv.setUint16(8,cd.length,true); dv.setUint16(10,cd.length,true);
+  dv.setUint32(12,cdSize,true); dv.setUint32(16,off,true); parts.push(eo);
+  return new Blob(parts,{type:"application/vnd.openxmlformats-officedocument.presentationml.presentation"});
+}
+const DB_MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function dbFmt(iso){ const d=mbDate(iso); return d.getDate()+" "+DB_MONTHS[d.getMonth()]+" "+String(d.getFullYear()).slice(2); }
+function dbNorm(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g," ").trim(); }
+const DB_STOP={commencement:1,commence:1,commences:1,completion:1,complete:1,the:1,and:1,for:1,with:1,works:1,work:1};
+function dbTokens(l){ return dbNorm(l).split(" ").filter(w=>w.length>2&&!DB_STOP[w]); }
+function dbDateFor(label,task){ return /commenc|start/i.test(label)?task.s:task.f; }
+function dbResolve(name,bld){ // latest-finishing task of that name; prefer the right building
+  const prog=loadProgram(), all=((prog&&prog.index)||[]).filter(t=>t.n===name);
+  if(!all.length) return null;
+  const same=all.filter(t=>t.b===bld);
+  return (same.length?same:all).sort((a,b)=>a.f<b.f?1:-1)[0];
+}
+function dbCandidates(label,bld){
+  const prog=loadProgram(), toks=dbTokens(label); if(!prog||!prog.index||!toks.length) return [];
+  const seen={}, out=[];
+  prog.index.forEach(t=>{ const n=dbNorm(t.n); let s=0; toks.forEach(k=>{ if(n.indexOf(k)>=0) s+=k.length; });
+    if(!s) return; if(t.b===bld) s+=3; else if(t.b&&t.b!==bld) s-=4; if(s<=0) return;
+    const key=t.n+"|"+t.b; if(seen[key]){ if(t.f>seen[key].t.f){ seen[key].t=t; } return; }
+    const e={t:t,s:s}; seen[key]=e; out.push(e); });
+  return out.sort((a,b)=>b.s-a.s).slice(0,30);
+}
+function dbMapLoad(){ try{ return JSON.parse(localStorage.getItem("tphs_debrief_v1")||"{}"); }catch(e){ return {}; } }
+function dbMapSave(m){ localStorage.setItem("tphs_debrief_v1",JSON.stringify(m)); }
+window._db=null;
+function dbParseDeck(bytes){
+  const entries=xlsxFindEntries(bytes), names=Object.keys(entries);
+  const need=["ppt/slides/slide8.xml","ppt/slides/slide9.xml","ppt/slides/slide10.xml"];
+  need.forEach(n=>{ if(!entries[n]) throw new Error("The deck has no "+n.replace("ppt/slides/","").replace(".xml","")+" — it does not look like the debrief deck."); });
+  return {bytes:bytes,entries:entries,names:names};
+}
+async function dbReadSlide(db,n){ return await xlsxReadEntry(db.bytes,db.entries["ppt/slides/slide"+n+".xml"]); }
+async function dbReadRels(db,n){ const e=db.entries["ppt/slides/_rels/slide"+n+".xml.rels"]; return e?await xlsxReadEntry(db.bytes,e):""; }
+function dbPicTarget(slideXml,relsXml){ // the one picture on the slide -> {relId, media:'ppt/media/...'}
+  const rels={}; (relsXml.match(/<Relationship\b[^>]*>/g)||[]).forEach(r=>{
+    const id=/Id="(rId\d+)"/.exec(r), tg=/Target="\.\.\/(media\/[^"]+)"/.exec(r);
+    if(id&&tg) rels[id[1]]="ppt/"+tg[1]; });
+  const em=/r:embed="(rId\d+)"/.exec(slideXml);
+  return (em&&rels[em[1]])?{relId:em[1],media:rels[em[1]]}:null;
+}
+function dbFitPic(xml,relId,iw,ih){ // shrink the picture frame to the new image's aspect, centred in the old box
+  const pics=xml.match(/<p:pic>[\s\S]*?<\/p:pic>/g)||[];
+  for(const p of pics){ if(p.indexOf('r:embed="'+relId+'"')<0) continue;
+    const off=/<a:off x="(-?\d+)" y="(-?\d+)"\/>/.exec(p), ext=/<a:ext cx="(\d+)" cy="(\d+)"\/>/.exec(p);
+    if(!off||!ext) return xml;
+    const bx=+off[1],by=+off[2],bw=+ext[1],bh=+ext[2],r=iw/ih;
+    let w=bw,h=Math.round(bw/r); if(h>bh){ h=bh; w=Math.round(bh*r); }
+    const np=p.replace(off[0],'<a:off x="'+(bx+Math.round((bw-w)/2))+'" y="'+(by+Math.round((bh-h)/2))+'"/>')
+              .replace(ext[0],'<a:ext cx="'+w+'" cy="'+h+'"/>');
+    return xml.replace(p,np);
+  }
+  return xml;
+}
+function dbCells(rowXml){ return rowXml.match(/<a:tc(?:[\s>][\s\S]*?<\/a:tc>|\/>)/g)||[]; }
+function dbCellText(c){ return (c.match(/<a:t>([\s\S]*?)<\/a:t>/g)||[]).map(t=>t.slice(5,-6)).join(" ").replace(/\s+/g," ").trim(); }
+function dbParseTable(s9){
+  const rows=s9.match(/<a:tr[\s>][\s\S]*?<\/a:tr>/g)||[];
+  let fi=-1,ei=-1,hdr=-1;
+  rows.forEach((r,i)=>{ if(hdr>=0) return; const cs=dbCells(r).map(dbCellText);
+    const f=cs.findIndex(t=>/building\s*f/i.test(t)), e=cs.findIndex(t=>/building\s*e/i.test(t));
+    if(f>=0&&e>=0){ hdr=i; fi=f; ei=e; } });
+  if(hdr<0) throw new Error("Could not find the Building F / Building E header row on the long-term look ahead page.");
+  const data=[]; rows.forEach((r,i)=>{ if(i<=hdr) return; const cs=dbCells(r), label=dbCellText(cs[0]||"");
+    if(label) data.push({xml:r,label:label,fTxt:dbCellText(cs[fi]||""),eTxt:dbCellText(cs[ei]||"")}); });
+  return {rows:data,fi:fi,ei:ei};
+}
+function dbSetCell(rowXml,idx,text){
+  const cells=dbCells(rowXml); if(idx>=cells.length) return null;
+  const c=cells[idx]; if(c.indexOf("<a:t>")<0) return null;
+  let first=true;
+  const nc=c.replace(/<a:t>[\s\S]*?<\/a:t>/g,()=>{ const out=first?"<a:t>"+text+"</a:t>":"<a:t></a:t>"; first=false; return out; });
+  return rowXml.replace(c,nc);
+}
+async function onDbDeck(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  const st=document.getElementById("dbStatus"); st.style.color="var(--text2)";
+  try{
+    const db=dbParseDeck(new Uint8Array(await f.arrayBuffer()));
+    db.fileName=f.name;
+    db.s9=await dbReadSlide(db,9);
+    db.table=dbParseTable(db.s9);
+    window._db=db;
+    document.getElementById("dbDeckLabel").textContent="📎 "+f.name;
+    const sd=document.getElementById("dbStart"); if(!sd.value) sd.value=fwDefaultStart();
+    document.getElementById("dbBuildBtn").style.display="inline-flex";
+    dbRenderMap();
+    const prog=loadProgram();
+    st.textContent=prog&&prog.index?"Deck read: "+db.table.rows.length+" long-term rows. Check the matches below, then build.":
+      (prog?"Deck read, but the stored programme predates the long-term index — reload the programme XML above, then choose the deck again.":"Deck read. Load the programme XML above, then choose the deck again.");
+    st.style.color=prog&&prog.index?"var(--success)":"#B3261E";
+  }catch(e){ st.style.color="#B3261E"; st.textContent="Could not read the deck: "+(e.message||"error"); window._db=null; document.getElementById("dbBuildBtn").style.display="none"; document.getElementById("dbMap").innerHTML=""; }
+  inp.value="";
+}
+function dbRenderMap(){
+  const db=window._db, el=document.getElementById("dbMap"); if(!db){ el.innerHTML=""; return; }
+  const prog=loadProgram(); if(!prog||!prog.index){ el.innerHTML=""; return; }
+  const map=dbMapLoad();
+  const opts=(label,bld,cur)=>{ const cands=dbCandidates(label,bld);
+    let h='<option value="">— leave as is —</option>';
+    let found=false;
+    cands.forEach(c=>{ const v=(c.t.n+"|"+c.t.b).replace(/"/g,"&quot;"), sel=cur&&cur===c.t.n+"|"+c.t.b?' selected':''; if(sel) found=true;
+      h+='<option value="'+v+'"'+sel+'>'+escH(c.t.n)+(c.t.b?" (Bldg "+c.t.b+")":"")+" — "+dbFmt(dbDateFor(label,c.t))+'</option>'; });
+    if(cur&&!found){ const p=cur.split("|"); h+='<option value="'+escH(cur)+'" selected>'+escH(p[0])+(p[1]?" (Bldg "+p[1]+")":"")+' — saved match</option>'; }
+    return h; };
+  let h='<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:8px;">'
+    +'<tr style="text-align:left;"><th style="padding:4px;">Long-term row</th><th style="padding:4px;">Building F programme line</th><th style="padding:4px;">Building E programme line</th></tr>';
+  db.table.rows.forEach((r,i)=>{
+    const kf="F|"+dbNorm(r.label), ke="E|"+dbNorm(r.label);
+    let curF=map[kf]||"", curE=map[ke]||"";
+    if(!curF){ const c=dbCandidates(r.label,"F"); if(c.length&&c[0].s>=6){ curF=c[0].t.n+"|"+c[0].t.b; map[kf]=curF; } }
+    if(!curE){ const c=dbCandidates(r.label,"E"); if(c.length&&c[0].s>=6){ curE=c[0].t.n+"|"+c[0].t.b; map[ke]=curE; } }
+    h+='<tr style="border-top:1px solid var(--border);"><td style="padding:4px;white-space:nowrap;">'+escH(r.label)
+      +'<br><small style="color:var(--text3);">now: '+escH(r.fTxt||"—")+' / '+escH(r.eTxt||"—")+'</small></td>'
+      +'<td style="padding:4px;"><select data-dbmap="'+kf+'" data-dbrow="'+i+'" onchange="dbMapPick(this)" style="max-width:280px;font-size:11px;">'+opts(r.label,"F",curF)+'</select></td>'
+      +'<td style="padding:4px;"><select data-dbmap="'+ke+'" data-dbrow="'+i+'" onchange="dbMapPick(this)" style="max-width:280px;font-size:11px;">'+opts(r.label,"E",curE)+'</select></td></tr>';
+  });
+  h+="</table><div class='mb-status'>Matches are remembered, so next week this is automatic. “Leave as is” keeps whatever the cell says now.</div>";
+  dbMapSave(map); el.innerHTML=h;
+}
+window.dbMapPick=function(sel){ const m=dbMapLoad(); if(sel.value) m[sel.getAttribute("data-dbmap")]=sel.value; else delete m[sel.getAttribute("data-dbmap")]; dbMapSave(m); };
+let DB_URL=null;
+async function dbBuild(){
+  const st=document.getElementById("dbStatus"), db=window._db, prog=loadProgram();
+  const fail=t=>{ st.style.color="#B3261E"; st.textContent=t; };
+  if(!db) return fail("Choose last week's deck first.");
+  if(!prog) return fail("Load the programme XML above first.");
+  if(!prog.index) return fail("The stored programme predates the long-term index — reload the current programme XML, then build again.");
+  let v=document.getElementById("dbStart").value; if(!v) return fail("Choose the Monday the two weeks start on.");
+  const d0=mbDate(v); if(d0.getDay()!==1){ v=mbISO(mbAdd(d0,-((d0.getDay()+6)%7))); document.getElementById("dbStart").value=v; }
+  const last=mbISO(mbAdd(mbDate(v),12)), pEnd=mbISO(mbAdd(mbDate(prog.start),prog.days-1));
+  if(v<prog.start||last>pEnd) return fail("The loaded programme covers "+fmtDMY(prog.start)+" to "+fmtDMY(pEnd)+", which does not include all of these two weeks. Load the current XML export first.");
+  st.style.color="var(--text2)"; st.textContent="Building the deck…"; await new Promise(r=>setTimeout(r,30));
+  try{
+    const notes=[];
+    // ---- slide 8: two-week look ahead picture
+    const c=fwRender(prog,v,2,"TPHS M3   TWO WEEK LOOK AHEAD");
+    const png=new Uint8Array(await (await new Promise(r=>c.toBlob(r,"image/png"))).arrayBuffer());
+    let s8=await dbReadSlide(db,8); const r8=dbPicTarget(s8,await dbReadRels(db,8));
+    if(!r8) throw new Error("No picture frame found on the two-week look ahead page.");
+    s8=dbFitPic(s8,r8.relId,c.width,c.height);
+    // ---- slide 9: long-term dates
+    const map=dbMapLoad(); let s9=db.s9, changed=0, left=[];
+    db.table.rows.forEach(r=>{
+      let nr=r.xml, did=false;
+      [["F",db.table.fi],["E",db.table.ei]].forEach(([b,ci])=>{
+        const cur=map[b+"|"+dbNorm(r.label)]; if(!cur) return;
+        const p=cur.split("|"), t=dbResolve(p[0],p[1]||b);
+        if(!t){ left.push(r.label+" (Bldg "+b+": programme line no longer in the XML)"); return; }
+        const out=dbSetCell(nr,ci,dbFmt(dbDateFor(r.label,t)));
+        if(out){ nr=out; did=true; } else left.push(r.label+" (Bldg "+b+": cell has no editable text)");
+      });
+      if(did){ s9=s9.replace(r.xml,nr); changed++; }
+      else if(!map["F|"+dbNorm(r.label)]&&!map["E|"+dbNorm(r.label)]) left.push(r.label+" (left as is)");
+    });
+    // ---- slide 10: latest drone photo
+    let s10=await dbReadSlide(db,10), photo=null, r10=dbPicTarget(s10,await dbReadRels(db,10));
+    const pb=await idbGet("dab_photo"), blob=pb&&(pb.blob||pb);
+    if(blob&&blob.size&&r10){
+      const bmp=await createImageBitmap(blob);
+      s10=dbFitPic(s10,r10.relId,bmp.width,bmp.height);
+      photo=new Uint8Array(await blob.arrayBuffer());
+    } else notes.push(r10?"No drone photo stored yet — the site overview photo was left as last week's.":"No picture frame found on the site overview page — photo left as is.");
+    // ---- rebuild the zip, replacing only our parts
+    const enc=new TextEncoder(), out=[];
+    for(const name of db.names){
+      let data=null;
+      if(name==="ppt/slides/slide8.xml") data=enc.encode(s8);
+      else if(name==="ppt/slides/slide9.xml") data=enc.encode(s9);
+      else if(name==="ppt/slides/slide10.xml") data=enc.encode(s10);
+      else if(name===r8.media) data=png;
+      else if(photo&&r10&&name===r10.media) data=photo;
+      else data=await zipEntryBytes(db.bytes,db.entries[name]);
+      out.push({name:name,data:data});
+    }
+    const fri=mbAdd(mbDate(v),-3), name="Weekly Team Debrief "+fri.getDate()+" "+DB_MONTHS[fri.getMonth()]+" "+String(fri.getFullYear()).slice(2)+".pptx";
+    const blobOut=zipBuild(out);
+    if(DB_URL) URL.revokeObjectURL(DB_URL); DB_URL=URL.createObjectURL(blobOut);
+    const a=document.getElementById("dbDownload"); a.href=DB_URL; a.download=name; a.textContent="⬇ Download "+name; a.style.display="inline-flex";
+    st.style.color="var(--success)";
+    st.textContent="Built: two-week look ahead redrawn from "+prog.source+", "+changed+" of "+db.table.rows.length+" long-term rows updated"+(photo?", drone photo replaced.":".")
+      +(left.length?" Not changed: "+left.join("; ")+".":"")+(notes.length?" "+notes.join(" "):"");
+    saveFiles([{blob:blobOut,name:name,kind:"debrief",date:v}],st);
+  }catch(e){ fail("Could not build the deck: "+(e.message||"error")); }
+}
+
 // ================= Daily Activities Board + A3 print pack (step 3) =================
 const DAB={photo:null,photoMeta:null,pack:null,logo:null,plan:null,urls:{}};
 const DAB_TRADE={"DELIVERIES":"#111111","TOWER":"#23963F","HORIZONE":"#D56A00","SCALZO":"#D32F2F","SWG":"#0288D1","TWO WAY CRANES":"#3F51B5","DAVID POWER":"#00897B","ARROW":"#A32CC4","HOT":"#6D4C41","D & C":"#AD1457","INTERSPAN":"#827717","ELITE SURVEY":"#C2185B","LIPMAN/JV":"#455A64"};
