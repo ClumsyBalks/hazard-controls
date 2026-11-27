@@ -2331,7 +2331,7 @@ function programFromXml(text,fileName,today){
   });
   const src=(fileName||pxTag(head,"Name")||"Programme").replace(/\.xml$/i,"").replace(/_/g," ").replace(/^\d{8}\s+/,"");
   const rev=/Rev\s*\d+/i.exec(src);
-  return {source:src,short:rev?"Programme "+rev[0]:"",start:A,days:DAYS,trades:tr,buildings:blds,pours:pours,index:index.slice(0,6000),_skipped:skipped,_saved:pxTag(head,"LastSaved")};
+  return {source:src,short:rev?"Programme "+rev[0]:"",start:A,days:DAYS,trades:tr,buildings:blds,pours:pours,off:Object.keys(off).sort(),index:index.slice(0,6000),_skipped:skipped,_saved:pxTag(head,"LastSaved")};
 }
 
 function onProgramFile(inp){
@@ -2466,8 +2466,21 @@ function mbPanel(g,x,y,w,h,title,note){
   g.rrect(x,y,w,h,6,MBC.PANEL,MBC.LINE);
   if(title){ g.text(title,x+14,y+h-30,true,22,MBC.AMBER); if(note) g.text(note,x+w-14,y+h-27,false,12,MBC.MUTED,"right"); }
 }
+// Days to highlight on the 7-day strip, keyed by ISO date. The meeting plans the next
+// working day: skip Sundays and calendar non-working dates (prog.off, from the programme
+// XML exceptions; absent on programmes stored before this existed). Saturday counts as a
+// working day whether or not tasks are programmed on it. A Friday meeting highlights
+// Saturday AND the next working day after it (normally Monday).
+function mbHighlights(today,prog){
+  const off={}; ((prog&&prog.off)||[]).forEach(d=>{ off[d]=1; });
+  const ok=d=>d.getDay()!==0&&!off[mbISO(d)];
+  const hl={}; let i=1;
+  if(today.getDay()===5){ const sat=mbAdd(today,1); if(ok(sat)) hl[mbISO(sat)]=1; i=2; }
+  for(;i<=7;i++){ const d=mbAdd(today,i); if(ok(d)){ hl[mbISO(d)]=1; break; } }
+  return hl;
+}
 function mbProgramme(g,prog,today,x,y,w,h){
-  const start=mbDate(prog.start), end=mbAdd(start,prog.days-1);
+  const start=mbDate(prog.start), end=mbAdd(start,prog.days-1), hl=mbHighlights(today,prog);
   const days=[]; for(let i=0;i<7;i++){ const d=mbAdd(today,i); if(d<=end) days.push(d); }
   mbPanel(g,x,y,w,h,"PROGRAMME: NEXT 7 DAYS");
   if(!days.length){ g.text("The loaded lookahead ended "+mbShort(end)+". Load the current lookahead in Setup.",x+14,y+h-70,false,18,"#FF9F43"); return; }
@@ -2489,17 +2502,18 @@ function mbProgramme(g,prog,today,x,y,w,h){
     g.text(b.name,bx,top-19,true,19,MBC.AMBER);
     days.forEach((d,di)=>{ const cx=bx+namew+di*cw;
       if(d.getDay()===0||d.getDay()===6) g.rect(cx,ty-rh*(rows.length+2),cw,rh*(rows.length+2),MBC.WKND);
-      const col=di===1?MBC.AMBER:MBC.TXT;
+      const col=hl[mbISO(d)]?MBC.AMBER:MBC.TXT;
       g.text(MB_DAY[d.getDay()].toUpperCase(),cx+cw/2,ty-rh+8,true,13,col,"center");
       g.text(String(d.getDate()).padStart(2,"0"),cx+cw/2,ty-2*rh+7,true,17,col,"center"); });
-    if(rows.length){ g.text("TODAY",bx+namew+0.5*cw,ty+2,true,10,MBC.AMBER,"center"); if(days.length>1) g.text("TOMORROW",bx+namew+1.5*cw,ty+2,true,10,MBC.AMBER,"center"); }
+    if(rows.length){ g.text("TODAY",bx+namew+0.5*cw,ty+2,true,10,MBC.AMBER,"center");
+      days.forEach((d,di)=>{ if(hl[mbISO(d)]) g.text(di===1?"TOMORROW":MB_DAYL[d.getDay()].toUpperCase(),bx+namew+(di+0.5)*cw,ty+2,true,10,MBC.AMBER,"center"); }); }
     let ry=ty-2*rh;
     rows.forEach(r=>{ ry-=rh; const kind=r[0];
       if(kind==="L"||kind==="G"||kind==="H"){ g.rect(bx,ry,bw,rh,{L:MBC.LVL,G:MBC.GRP,H:MBC.SUB}[kind]); g.text(r[1],bx+{L:8,G:16,H:24}[kind],ry+rh/2-5,true,g.fit(r[1],true,14,bw-30),MBC.TXT); }
       else{ g.text(r[1],bx+(kind==="B"?38:28),ry+rh/2-5,false,g.fit(r[1],false,14.5,namew-34),MBC.TXT);
         iso.forEach((d,di)=>{ if(r[2][d]&&tr[r[2][d]]) g.rect(bx+namew+di*cw+1,ry+1,cw-2,rh-2,tr[r[2][d]][1]); }); }
       g.line(bx,ry,bx+bw,ry,MBC.LINE,0.5); });
-    if(days.length>1&&rows.length) g.rect(bx+namew+cw,ry,cw,ty-ry,null,MBC.AMBER,2);
+    if(rows.length) days.forEach((d,di)=>{ if(hl[mbISO(d)]) g.rect(bx+namew+di*cw,ry,cw,ty-ry,null,MBC.AMBER,2); });
     for(let di=0;di<=days.length;di++) g.line(bx+namew+di*cw,ry,bx+namew+di*cw,ty-2*rh,MBC.LINE,0.5);
   });
 }
