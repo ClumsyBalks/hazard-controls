@@ -2346,7 +2346,7 @@ function onProgramFile(inp){
       const nb=p.buildings.reduce((n,x)=>n+x.rows.filter(q=>q[2]).length,0);
       st.textContent="Loaded: "+p.source+(isXml?" ("+nb+" activities and "+p.pours.length+" pours from "+mbShort(mbDate(p.start))+" for six weeks"+(p._skipped&&p._skipped.length?"; "+p._skipped.length+" not tagged to one building left out":"")+")":""); st.style.color="var(--success)";
     }catch(e){ st.textContent="Could not load: "+e.message; st.style.color="#B3261E"; }
-    renderNeeds(); };
+    renderNeeds(); if(window._db&&typeof dbRenderMap==="function") dbRenderMap(); };
   r.readAsText(f);
 }
 
@@ -2805,8 +2805,8 @@ function dbRenderMap(){
   db.table.rows.forEach((r,i)=>{
     const kf="F|"+dbNorm(r.label), ke="E|"+dbNorm(r.label);
     let curF=map[kf]||"", curE=map[ke]||"";
-    if(!curF){ const c=dbCandidates(r.label,"F"); if(c.length&&c[0].s>=6){ curF=c[0].t.n+"|"+c[0].t.b; map[kf]=curF; } }
-    if(!curE){ const c=dbCandidates(r.label,"E"); if(c.length&&c[0].s>=6){ curE=c[0].t.n+"|"+c[0].t.b; map[ke]=curE; } }
+    if(curF==="-") curF=""; else if(!curF){ const c=dbCandidates(r.label,"F"); if(c.length&&c[0].s>=6){ curF=c[0].t.n+"|"+c[0].t.b; map[kf]=curF; } }
+    if(map[ke]==="-") curE=""; else if(!curE){ const c=dbCandidates(r.label,"E"); if(c.length&&c[0].s>=6){ curE=c[0].t.n+"|"+c[0].t.b; map[ke]=curE; } }
     h+='<tr style="border-top:1px solid var(--border);"><td style="padding:4px;white-space:nowrap;">'+escH(r.label)
       +'<br><small style="color:var(--text3);">now: '+escH(r.fTxt||"—")+' / '+escH(r.eTxt||"—")+'</small></td>'
       +'<td style="padding:4px;"><select data-dbmap="'+kf+'" data-dbrow="'+i+'" onchange="dbMapPick(this)" style="max-width:280px;font-size:11px;">'+opts(r.label,"F",curF)+'</select></td>'
@@ -2815,7 +2815,7 @@ function dbRenderMap(){
   h+="</table><div class='mb-status'>Matches are remembered, so next week this is automatic. “Leave as is” keeps whatever the cell says now.</div>";
   dbMapSave(map); el.innerHTML=h;
 }
-window.dbMapPick=function(sel){ const m=dbMapLoad(); if(sel.value) m[sel.getAttribute("data-dbmap")]=sel.value; else delete m[sel.getAttribute("data-dbmap")]; dbMapSave(m); };
+window.dbMapPick=function(sel){ const m=dbMapLoad(); m[sel.getAttribute("data-dbmap")]=sel.value||"-"; dbMapSave(m); };
 let DB_URL=null;
 // ---- TV two-week lookahead (16:9), same layout as the meeting board's 7-day strip but 14 days.
 // Drawn from the stored programme, so it always reflects the XML last loaded in Setup.
@@ -2901,18 +2901,18 @@ async function dbBuild(){
     if(!r8) throw new Error("No picture frame found on the two-week look ahead page.");
     s8=dbFitPic(s8,r8.relId,c.width,c.height);
     // ---- slide 9: long-term dates
-    const map=dbMapLoad(); let s9=db.s9, changed=0, left=[];
+    dbRenderMap(); const map=dbMapLoad(); let s9=db.s9, changed=0, left=[], links=0, unl=0;
     db.table.rows.forEach(r=>{
       let nr=r.xml, did=false;
       [["F",db.table.fi],["E",db.table.ei]].forEach(([b,ci])=>{
-        const cur=map[b+"|"+dbNorm(r.label)]; if(!cur) return;
+        const cur=map[b+"|"+dbNorm(r.label)]; if(!cur||cur==="-"){ if(!cur) unl++; return; } links++;
         const p=cur.split("|"), t=dbResolve(p[0],p[1]||b);
         if(!t){ left.push(r.label+" (Bldg "+b+": programme line no longer in the XML)"); return; }
         const out=dbSetCell(nr,ci,dbFmt(dbDateFor(r.label,t)));
         if(out){ nr=out; did=true; } else left.push(r.label+" (Bldg "+b+": cell has no editable text)");
       });
       if(did){ s9=s9.replace(r.xml,nr); changed++; }
-      else if(!map["F|"+dbNorm(r.label)]&&!map["E|"+dbNorm(r.label)]) left.push(r.label+" (left as is)");
+
     });
     // ---- slide 10: latest drone photo
     let s10=await dbReadSlide(db,10), photo=null, r10=dbPicTarget(s10,await dbReadRels(db,10));
@@ -2938,9 +2938,10 @@ async function dbBuild(){
     const blobOut=zipBuild(out);
     if(DB_URL) URL.revokeObjectURL(DB_URL); DB_URL=URL.createObjectURL(blobOut);
     const a=document.getElementById("dbDownload"); a.href=DB_URL; a.download=name; a.textContent="⬇ Download "+name; a.style.display="inline-flex";
-    st.style.color="var(--success)";
+    st.style.color=unl?"#B26A00":"var(--success)";
     st.textContent="Built: two-week look ahead redrawn from "+prog.source+", "+changed+" of "+db.table.rows.length+" long-term rows updated"+(photo?", drone photo replaced.":".")
-      +(left.length?" Not changed: "+left.join("; ")+".":"")+(notes.length?" "+notes.join(" "):"");
+      +(left.length?" Not changed: "+left.join("; ")+".":"")
+      +(unl?(links?" ":" None of the long-term rows is linked to a programme line yet, so the dates are last week’s. ")+unl+" date cell"+(unl>1?"s have":" has")+" no programme line chosen: pick one in the table below (or “leave as is”), then build again. Choices are remembered for next week.":"")+(notes.length?" "+notes.join(" "):"");
     saveFiles([{blob:blobOut,name:name,kind:"debrief",date:v}],st);
   }catch(e){ fail("Could not build the deck: "+(e.message||"error")); }
 }
