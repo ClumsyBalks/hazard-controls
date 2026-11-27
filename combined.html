@@ -2817,6 +2817,70 @@ function dbRenderMap(){
 }
 window.dbMapPick=function(sel){ const m=dbMapLoad(); if(sel.value) m[sel.getAttribute("data-dbmap")]=sel.value; else delete m[sel.getAttribute("data-dbmap")]; dbMapSave(m); };
 let DB_URL=null;
+// ---- TV two-week lookahead (16:9), same layout as the meeting board's 7-day strip but 14 days.
+// Drawn from the stored programme, so it always reflects the XML last loaded in Setup.
+function tvRender(prog,startISO,S){
+  const W=2560,H=1440, c=document.createElement("canvas"); c.width=W*S; c.height=H*S;
+  const x=c.getContext("2d"); x.scale(S,S);
+  const F=(b,s)=>(b?"bold ":"")+s+"px Helvetica, Arial, sans-serif";
+  const T=(s,px,py,b,size,col,al)=>{ x.font=F(b,size); x.fillStyle=col; x.textAlign=al||"left"; x.textBaseline="middle"; x.fillText(s,px,py); };
+  const fit=(s,b,size,mw)=>{ x.font=F(b,size); while(size>7&&x.measureText(s).width>mw){ size-=0.5; x.font=F(b,size); } return size; };
+  const R=(px,py,w,h,col)=>{ x.fillStyle=col; x.fillRect(px,py,w,h); };
+  const d0=mbDate(startISO), days=[]; for(let i=0;i<14;i++) days.push(mbAdd(d0,i));
+  const iso=days.map(mbISO), off={}; (prog.off||[]).forEach(d=>{ off[d]=1; });
+  R(0,0,W,H,MBC.BG);
+  // header
+  R(0,0,W,100,"#13233F"); R(0,100,W,3,MBC.AMBER);
+  const dm=d=>d.getDate()+" "+MB_MON[d.getMonth()];
+  T("TPHS M3 TWO WEEK LOOKAHEAD   "+dm(days[0])+" to "+dm(days[13])+" "+days[13].getFullYear(),34,36,true,40,"#FFFFFF");
+  const now=new Date(), sv=prog._saved?"  ·  programme saved "+fmtDMY(String(prog._saved).slice(0,10)):"";
+  T("Derived from "+prog.source+sv+"  ·  issued "+mbShort(now)+" "+now.getFullYear(),34,76,false,23,"#C9D3E3");
+  // rows per building: headings only where a task under them falls in the fortnight
+  const tables=prog.buildings.map(b=>{ let rows=[],pend=[];
+    b.rows.forEach(r=>{
+      if(r[0]==="L") pend=[r];
+      else if(r[0]==="G"||r[0]==="H") pend=pend.filter(p=>p[0]==="L"||(p[0]==="G"&&r[0]==="H")).concat([r]);
+      else{ if(r[0]==="A") pend=pend.filter(p=>p[0]!=="H"); if(iso.some(d=>r[2]&&r[2][d])){ rows=rows.concat(pend,[r]); pend=[]; } }
+    }); return rows; });
+  const tr=prog.trades, used={}; tables.forEach(t=>t.forEach(r=>{ if(r[2]) iso.forEach(d=>{ if(r[2][d]) used[r[2][d]]=1; }); }));
+  const nb=prog.buildings.length, m=28, gap=28, pTop=126, pBot=H-96, pw=(W-2*m-gap*(nb-1))/nb;
+  const maxRows=Math.max.apply(null,tables.map(t=>t.length).concat([1]));
+  const hTop=pTop+56, rh=Math.min(30,(pBot-10-hTop)/(maxRows+3)), fs=Math.max(8,Math.min(15.5,rh*0.52));
+  const WK="#253352", HOL="#5A1E24";
+  prog.buildings.forEach((b,bi)=>{
+    const rows=tables[bi], px=m+bi*(pw+gap), bx=px+12, bw=pw-24, namew=bw*0.44, cw=(bw-namew)/14, gx=bx+namew;
+    x.fillStyle=MBC.PANEL; x.fillRect(px,pTop,pw,pBot-pTop);
+    T(b.name,bx+4,pTop+31,true,31,MBC.AMBER);
+    // Saturdays with work programmed in this building are not shaded
+    const satWork={}; rows.forEach(r=>{ if(r[2]) iso.forEach((d,di)=>{ if(r[2][d]&&days[di].getDay()===6) satWork[d]=1; }); });
+    const shade=di=>{ const d=days[di], k=iso[di]; return off[k]?HOL:(d.getDay()===0||(d.getDay()===6&&!satWork[k]))?WK:null; };
+    // month band, day names, dates
+    let y=hTop; R(bx,y,bw,3*rh,"#0E1728");
+    for(let i=0;i<14;){ let j=i; while(j<14&&days[j].getMonth()===days[i].getMonth()) j++;
+      T(MB_MONL[days[i].getMonth()].toUpperCase()+" "+days[i].getFullYear(),gx+(i+j)/2*cw,y+rh/2,true,fit("NOVEMBER 2026",true,fs*1.25,Math.max(40,(j-i)*cw-6)),MBC.AMBER,"center"); i=j; }
+    days.forEach((d,di)=>{ const s=shade(di); if(s) R(gx+di*cw,y+rh,cw,2*rh,s);
+      T(MB_DAY[d.getDay()].toUpperCase(),gx+(di+0.5)*cw,y+1.5*rh,true,fit("WED",true,fs*1.12,cw-6),"#C9D3E3","center");
+      T(String(d.getDate()).padStart(2,"0"),gx+(di+0.5)*cw,y+2.5*rh,true,fit("00",true,fs*1.4,cw-6),"#FFFFFF","center"); });
+    y+=3*rh; const gridTop=hTop+rh;
+    if(!rows.length) T("No activities programmed in this fortnight.",bx+10,y+rh,false,18,MBC.MUTED);
+    rows.forEach(r=>{ const k=r[0];
+      if(k==="L"||k==="G"||k==="H"){ R(bx,y,bw,rh,{L:MBC.LVL,G:MBC.GRP,H:MBC.SUB}[k]); const ind={L:22,G:37,H:52}[k]; T(r[1],bx+ind,y+rh/2,true,fit(r[1],true,fs,namew-ind-8),"#FFFFFF"); }
+      else{ const ind=k==="B"?67:52; T(r[1],bx+ind,y+rh/2,false,fit(r[1],false,fs,namew-ind-8),MBC.TXT);
+        iso.forEach((d,di)=>{ const code=r[2][d], s=shade(di);
+          if(code&&tr[code]) R(gx+di*cw,y,cw,rh,tr[code][1]); else if(s) R(gx+di*cw,y,cw,rh,s); }); }
+      y+=rh; });
+    // grid
+    x.strokeStyle=MBC.LINE; x.lineWidth=0.7; x.beginPath();
+    for(let di=0;di<=14;di++){ x.moveTo(gx+di*cw,gridTop); x.lineTo(gx+di*cw,y); }
+    for(let yy=hTop;yy<=y+0.1;yy+=rh){ x.moveTo(bx,yy); x.lineTo(bx+bw,yy); }
+    x.moveTo(bx,hTop); x.lineTo(bx,y); x.moveTo(bx+bw,hTop); x.lineTo(bx+bw,y); x.stroke();
+  });
+  // legend
+  R(0,H-50,W,50,"#13233F");
+  let lx=34; Object.keys(tr).filter(k=>used[k]||/^[FSPCOE]$/.test(k)).forEach(k=>{ R(lx,H-36,30,22,tr[k][1]); T(tr[k][0],lx+38,H-25,false,19,"#FFFFFF"); x.font=F(false,19); lx+=38+x.measureText(tr[k][0]).width+18; });
+  T("Weekends shaded, Saturday cleared only where work is programmed  ·  calendar non-working days in dark red",W-34,H-25,false,15,"#C9D3E3","right");
+  return c;
+}
 async function dbBuild(){
   const st=document.getElementById("dbStatus"), db=window._db, prog=loadProgram();
   const fail=t=>{ st.style.color="#B3261E"; st.textContent=t; };
@@ -2831,7 +2895,7 @@ async function dbBuild(){
   try{
     const notes=[];
     // ---- slide 8: two-week look ahead picture
-    const c=fwRender(prog,v,2,"TPHS M3   TWO WEEK LOOK AHEAD");
+    const c=tvRender(prog,v,1.5);
     const png=new Uint8Array(await (await new Promise(r=>c.toBlob(r,"image/png"))).arrayBuffer());
     let s8=await dbReadSlide(db,8); const r8=dbPicTarget(s8,await dbReadRels(db,8));
     if(!r8) throw new Error("No picture frame found on the two-week look ahead page.");
