@@ -2270,7 +2270,7 @@ function programFromXml(text,fileName,today){
   const asg={}; pxBlocks(text,"Assignments","Assignment").forEach(a=>{ const h=a.slice(0,400), t=pxTag(h,"TaskUID"), n=res[pxTag(h,"ResourceUID")]; if(n) (asg[t]=asg[t]||[]).push(n); });
   const bRe=new RegExp("<FieldID>"+bField+"</FieldID>\\s*<Value>([^<]*)</Value>");
   const T=pxBlocks(text,"Tasks","Task").map(b=>{ const cut=b.search(/<(PredecessorLink|ExtendedAttribute|Baseline|TimephasedData)>/), h=cut<0?b:b.slice(0,cut), m=bRe.exec(b);
-    return {uid:pxTag(h,"UID"),name:pxTag(h,"Name").replace(/\s+/g," "),lv:+pxTag(h,"OutlineLevel")||0,sum:pxTag(h,"Summary")==="1",start:pxTag(h,"Start"),finish:pxTag(h,"Finish"),
+    return {uid:pxTag(h,"UID"),id:pxTag(h,"ID"),name:pxTag(h,"Name").replace(/\s+/g," "),lv:+pxTag(h,"OutlineLevel")||0,sum:pxTag(h,"Summary")==="1",start:pxTag(h,"Start"),finish:pxTag(h,"Finish"),
       dur:(/PT(\d+)H/.exec(pxTag(h,"Duration"))||[0,0])[1]/8,bld:m?m[1].trim():"",active:pxTag(h,"Active")!=="0"}; }).filter(t=>t.name);
   // window: Monday of this week, six weeks
   const start=new Date(today.getFullYear(),today.getMonth(),today.getDate()); start.setDate(start.getDate()-((start.getDay()+6)%7));
@@ -2327,7 +2327,7 @@ function programFromXml(text,fileName,today){
   const index=[];
   T.forEach(t=>{ if(!t.active||!t.start||!t.finish) return;
     let b=t.bld; for(let p=t.parent;p>=0&&!/^[A-Z]$/.test(b);p=T[p].parent) b=T[p].bld;
-    index.push({n:t.name,b:/^[A-Z]$/.test(b)?b:"",s:t.start.slice(0,10),f:t.finish.slice(0,10),sum:t.sum?1:0});
+    index.push({n:t.name,b:/^[A-Z]$/.test(b)?b:"",s:t.start.slice(0,10),f:t.finish.slice(0,10),sum:t.sum?1:0,i:+t.id||0,u:t.uid});
   });
   const src=(fileName||pxTag(head,"Name")||"Programme").replace(/\.xml$/i,"").replace(/_/g," ").replace(/^\d{8}\s+/,"");
   const rev=/Rev\s*\d+/i.exec(src);
@@ -2730,8 +2730,8 @@ function dbCandidates(label,bld,query){
     const key=t.n+"|"+t.b; if(seen[key]) return; seen[key]=1; out.push({t:t,s:s}); });
   return out.sort((a,b)=>b.s-a.s).slice(0,60);
 }
-function dbMapLoad(){ try{ return JSON.parse(localStorage.getItem("tphs_debrief_v2")||"{}"); }catch(e){ return {}; } }
-function dbMapSave(m){ localStorage.setItem("tphs_debrief_v2",JSON.stringify(m)); }
+function dbMapLoad(){ try{ return JSON.parse(localStorage.getItem("tphs_debrief_v3")||"{}"); }catch(e){ return {}; } }
+function dbMapSave(m){ localStorage.setItem("tphs_debrief_v3",JSON.stringify(m)); }
 window._db=null;
 function dbParseDeck(bytes){
   const entries=xlsxFindEntries(bytes), names=Object.keys(entries);
@@ -2806,11 +2806,43 @@ async function onDbDeck(inp){
   }catch(e){ st.style.color="#B3261E"; st.textContent="Could not read the deck: "+(e.message||"error"); window._db=null; document.getElementById("dbBuildBtn").style.display="none"; document.getElementById("dbMap").innerHTML=""; }
   inp.value="";
 }
+// Links to specific programme lines, by MS Project Unique ID (stable when rows are inserted):
+//   "#label~uid,uid~mode;label~uid~mode"  -> each part is the earliest start (s) or latest finish (f)
+//   of its lines, optionally prefixed by a label; parts are joined with " / ".
+function dbLineText(cur){
+  const idx=dbIdx(), parts=cur.slice(1).split(";"), out=[];
+  for(const p of parts){ const q=p.split("~"), ts=q[1].split(",").map(u=>idx.find(t=>t.u===u));
+    if(ts.some(t=>!t)) return null;
+    const d=q[2]==="s"?ts.reduce((m,t)=>t.s<m?t.s:m,ts[0].s):ts.reduce((m,t)=>t.f>m?t.f:m,ts[0].f);
+    out.push((q[0]?q[0]+" ":"")+dbFmt(d)); }
+  return out.join(" / ");
+}
+function dbLineDesc(cur){ const idx=dbIdx();
+  return cur.slice(1).split(";").map(p=>{ const q=p.split("~"), ts=q[1].split(",").map(u=>idx.find(t=>t.u===u));
+    return (q[2]==="s"?"start":"finish")+" of line"+(ts.length>1?"s ":" ")+ts.map(t=>t?t.i:"?").join(", ")+(ts.length===1&&ts[0]?" "+ts[0].n:""); }).join("; "); }
+// The text a saved link puts in the cell, or null when its programme line has gone
+function dbLinkText(cur,label,bld){ if(cur.charAt(0)==="#") return dbLineText(cur);
+  const L=dbLink(cur,label), d=dbResolveDate(L.n,L.b||bld,L.m); return d?dbFmt(d):null; }
+// Links Cameron specified by programme line (27/11/2026), keyed by building and row label. Used
+// only where nothing has been chosen on this device yet.
+const DB_SEED=(()=>{ const o={}, S=(row,f,e)=>{ o["F|"+row]="#"+f; o["E|"+row]="#"+(e||f); };
+  S("pour top slabs","~1912~f","~1896~f"); S("aus truss commencement","~1018~s","~1022~s");
+  S("frametek wall commencement","~1157,1108,1132,1144~s","~1099,1166,1178~s"); S("window sub framing commencement","~1158~s","~1100~s");
+  S("watertight","~1148~f","~1182~f"); S("fitout commence","~1470~s","~1193~s"); S("joinery commence","~1517~s","~1240~s");
+  S("floor finishes commence","~1518~s","~1241~s"); S("scaffold stripped landscaping commence","~1924~f","~1923~f");
+  S("commissioning","~1713~s"); S("client defects","~1528~f","~1251~f");
+  S("milestone 3 completion","Subcontractor~1719~f;Handover~1723~f"); return o; })();
 // A saved link is "name|building|mode"; older two-part links take the mode from the row label.
 function dbLink(cur,label){ const p=cur.split("|"); return {n:p[0],b:p[1]||"",m:p[2]||dbMode(label)}; }
 function dbOpts(label,bld,cur,query){
-  const cands=dbCandidates(label,bld,query), L=cur&&cur!=="-"?dbLink(cur,label):null;
+  const isLine=cur&&cur.charAt(0)==="#", nums=query&&/^[\d\s,]+$/.test(query)?query.split(/[\s,]+/).filter(Boolean).map(Number):null;
+  const cands=nums?[]:dbCandidates(label,bld,query), L=cur&&cur!=="-"&&!isLine?dbLink(cur,label):null;
   let h='<option value="-">leave as is</option>', found=false;
+  if(isLine){ const t=dbLineText(cur); h+='<option value="'+escH(cur)+'" selected>'+(t?escH(t)+" · ":"NOT IN THIS PROGRAMME · ")+escH(dbLineDesc(cur))+'</option>'; }
+  if(nums){ const idx=dbIdx(), ts=nums.map(n=>idx.find(t=>t.i===n));
+    if(ts.every(t=>t)){ const us=ts.map(t=>t.u).join(","), nm=ts.length===1?"line "+nums[0]+" "+escH(ts[0].n):"lines "+nums.join(", ");
+      [["s","earliest start of "],["f","latest finish of "]].forEach(([m,w])=>{ const v="#~"+us+"~"+m; h+='<option value="'+v+'">'+escH(dbLineText(v))+" · "+(ts.length===1?w.replace(/^\w+ /,""):w)+nm+'</option>'; }); }
+    else h+='<option value="" disabled>no programme line '+nums.filter((n,i)=>!ts[i]).join(", ")+'</option>'; }
   cands.forEach(c=>{ const s=dbResolveDate(c.t.n,c.t.b||bld,"s"), f=dbResolveDate(c.t.n,c.t.b||bld,"f"), nm=escH(c.t.n)+(c.t.b?" (Bldg "+c.t.b+")":"");
     (s===f?[["f",""]]:[["s","starts "],["f","finishes "]]).forEach(([m,w])=>{
       const sel=L&&L.n===c.t.n&&L.b===c.t.b&&(L.m===m||s===f)?" selected":""; if(sel) found=true;
@@ -2821,9 +2853,10 @@ function dbOpts(label,bld,cur,query){
 function dbRenderMap(){
   const db=window._db, el=document.getElementById("dbMap"); if(!db){ el.innerHTML=""; return; }
   const prog=loadProgram(); if(!prog||!prog.index){ el.innerHTML=""; return; }
+  if(prog.index[0]&&!prog.index[0].u){ el.innerHTML="<div class='mb-status' style='color:#B3261E'>Reload the current programme XML above so the long-term rows can be linked to programme lines.</div>"; return; }
   const map=dbMapLoad();
   // suggest a link only when one programme line clearly beats the rest, and never into a blank cell
-  const auto=(r,b,k,txt)=>{ if(map[k]||!txt) return; const c=dbCandidates(r.label,b);
+  const auto=(r,b,k,txt)=>{ if(map[k]) return; if(DB_SEED[k]&&dbLineText(DB_SEED[k])){ map[k]=DB_SEED[k]; return; } if(!txt) return; const c=dbCandidates(r.label,b);
     if(c.length&&c[0].s>=10&&(c.length<2||c[0].s>c[1].s)) map[k]=c[0].t.n+"|"+c[0].t.b+"|"+dbMode(r.label); };
   let h='<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:8px;">'
     +'<tr style="text-align:left;"><th style="padding:4px;">Long-term row</th><th style="padding:4px;">Building F: date to show</th><th style="padding:4px;">Building E: date to show</th></tr>';
@@ -2836,7 +2869,7 @@ function dbRenderMap(){
     h+='<tr style="border-top:1px solid var(--border);"><td style="padding:4px;vertical-align:top;">'+escH(r.label)
       +'<br><small style="color:var(--text3);">now: '+escH(r.fTxt||"blank")+' / '+escH(r.eTxt||"blank")+'</small></td>'+cell(r,i,"F",kf,r.fTxt)+cell(r,i,"E",ke,r.eTxt)+'</tr>';
   });
-  h+="</table><div class='mb-status'>Each option shows the date it will put in the deck. Where a programme line repeats on every level, “starts” is the earliest start and “finishes” the latest finish. Type in the search box if the right line is not in the list. Choices are remembered for next week.</div>";
+  h+="</table><div class='mb-status'>Each option shows the date it will put in the deck. Where a programme line repeats on every level, “starts” is the earliest start and “finishes” the latest finish. If the right line is not in the list, type part of its name or its programme line number(s) in the search box (several numbers, comma separated, give the earliest start or latest finish of that group). Choices are remembered for next week.</div>";
   dbMapSave(map); el.innerHTML=h;
 }
 window.dbMapPick=function(sel){ if(!sel.value) return; const m=dbMapLoad(); m[sel.getAttribute("data-dbmap")]=sel.value; dbMapSave(m); sel.style.borderColor=""; };
@@ -2913,7 +2946,7 @@ async function dbBuild(){
   const fail=t=>{ st.style.color="#B3261E"; st.textContent=t; };
   if(!db) return fail("Choose last week's deck first.");
   if(!prog) return fail("Load the programme XML above first.");
-  if(!prog.index) return fail("The stored programme predates the long-term index — reload the current programme XML, then build again.");
+  if(!prog.index||(prog.index[0]&&!prog.index[0].u)) return fail("The stored programme predates the long-term index — reload the current programme XML, then build again.");
   let v=document.getElementById("dbStart").value; if(!v) return fail("Choose the Monday the two weeks start on.");
   const d0=mbDate(v); if(d0.getDay()!==1){ v=mbISO(mbAdd(d0,-((d0.getDay()+6)%7))); document.getElementById("dbStart").value=v; }
   const last=mbISO(mbAdd(mbDate(v),12)), pEnd=mbISO(mbAdd(mbDate(prog.start),prog.days-1));
@@ -2933,9 +2966,9 @@ async function dbBuild(){
       let nr=r.xml, did=false;
       [["F",db.table.fi],["E",db.table.ei]].forEach(([b,ci])=>{
         const cur=map[b+"|"+dbNorm(r.label)]; if(!cur||cur==="-"){ if(!cur) unl++; return; } links++;
-        const L=dbLink(cur,r.label), dt=dbResolveDate(L.n,L.b||b,L.m);
+        const dt=dbLinkText(cur,r.label,b);
         if(!dt){ left.push(r.label+" (Bldg "+b+": programme line no longer in the XML)"); return; }
-        const out=dbSetCell(nr,ci,dbFmt(dt));
+        const out=dbSetCell(nr,ci,dt);
         if(out){ nr=out; did=true; } else left.push(r.label+" (Bldg "+b+": cell has no editable text)");
       });
       if(did){ s9=s9.replace(r.xml,nr); changed++; }
