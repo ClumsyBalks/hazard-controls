@@ -3179,6 +3179,9 @@ function dabRender(plan,K){
 // border and header band are the same size on both, and the High Risk Works heading on the left
 // sits level with the Permits / Deliveries headings on the right. The right screen is drawn at
 // twice the left's scale (R logical units = 2u).
+// Short contractor names for the narrow TV column (Cameron, 28/11/2026). Anything not listed keeps its name and wraps.
+function dabShortName(t){ const u=String(t).toUpperCase();
+  if(/^D\s*&\s*C\b/.test(u)) return "D&C"; if(/^ELITE\b/.test(u)) return "ELITE"; if(/^TWO[\s-]*WAY\s+CRANES?/.test(u)) return "TWC"; return u; }
 function dabRenderTV(plan,KL,KR){
   const zones=dabZones(), im=DAB.photo, asp=im.width/im.height, rows=plan.rows, hrw=(plan.hrw||[]).slice(0,5);
   const HU=1920, WLu=1080, BORD=32, HEAD=160;
@@ -3197,15 +3200,15 @@ function dabRenderTV(plan,KL,KR){
   L.fill(DAB_G,0,0,WLu,HU); L.fill("#fff",BORD,HEAD,WLu-2*BORD,HU-HEAD-BORD);
   { let fs=104; x.font=dabFont(false,fs); while(x.measureText("Daily Activities Board").width>WLu-2*LX&&fs>40){ fs-=2; x.font=dabFont(false,fs); } dabText(x,"Daily Activities Board",LX,HEAD/2+fs*0.34,false,fs,DAB_TEAL); }
   const DH=124; L.box(LX,T0,270,DH,"Date"); L.box(LX+280,T0,LW-280,DH,"Weather"); dabText(x,dabDayLong(plan.for_date,true),LX+8,T0+86,true,27,DAB_INK);
-  let wl=[],wfs=18; for(const o of [[18,4],[16,4],[14.5,5],[13,6],[11.5,6],[10,7]]){ wfs=o[0]; wl=dabWrap(x,plan.weather||"",false,wfs,LW-280-16); if(wl.length<=o[1]) break; }
+  let wl=[],wfs=18; const wtx=plan.wx_short||plan.weather||""; for(const o of [[25,3],[22,3],[20,4],[18,4],[16,5],[14.5,5],[13,6],[11.5,6],[10,7]]){ wfs=o[0]; wl=dabWrap(x,wtx,false,wfs,LW-280-16); if(wl.length<=o[1]) break; }
   { const lead=wfs*1.22, top=T0+24+(DH-24-lead*wl.length)/2+wfs*0.95; wl.forEach((l,k)=>dabText(x,l,LX+288,top+k*lead,false,wfs,DAB_INK)); }
   const TT=T0+DH+10, TB=HT-10; L.box(LX,TT,LW,TB-TT,"Contractor");
   const rh=Math.min(80,(TB-TT-24)/Math.max(rows.length,1)), f=Math.max(1,Math.min(1.5,rh/44));   // rows and type grow into the taller box
-  const cx=[LX,LX+150+52*f,LX+150+52*f+26+14*f,LX+LW-150-80*f,LX+LW]; dabText(x,"Daily Task",cx[2]+4,TT+17,false,14,"#fff"); dabText(x,"Zone",cx[3]+6,TT+17,false,14,"#fff");
+  const cx=[LX,LX+98+30*f,LX+98+30*f+26+14*f,LX+LW-150-80*f,LX+LW]; dabText(x,"Daily Task",cx[2]+4,TT+17,false,14,"#fff"); dabText(x,"Zone",cx[3]+6,TT+17,false,14,"#fff");
   let t=TT+24, prev=null;
   rows.forEach((r,n)=>{ const trade=r[0],task=r[1],ztxt=r[2]||"",col=dabColour(trade),mid=t+rh/2;
     if(trade!==prev){ if(prev!==null){ x.strokeStyle=DAB_G; x.lineWidth=1.1; x.beginPath(); x.moveTo(LX,t); x.lineTo(LX+LW,t); x.stroke(); }
-      L.fill(col,LX+1,t,7,rh); dabCell(x,trade,LX+15,mid,cx[1]-cx[0]-22,rh,14*f,11); }
+      L.fill(col,LX+1,t,7,rh); dabCell(x,dabShortName(trade),LX+15,mid,cx[1]-cx[0]-20,rh,14*f,11); }
     else{ L.fill(col,LX+1,t,7,rh); x.strokeStyle="#C9D6D5"; x.lineWidth=0.6; x.beginPath(); x.moveTo(cx[1],t); x.lineTo(LX+LW,t); x.stroke(); }
     const br=Math.min(10.5*f,rh/2-3), bx=(cx[1]+cx[2])/2; x.beginPath(); x.arc(bx,mid,br,0,7); x.fillStyle=col; x.fill(); { const bf=(n<9?12:10.5)*br/10.5; dabText(x,String(n+1),bx,mid+bf*0.35,true,bf,"#fff","center"); }
     const tw=cx[3]-cx[2]-12; let fs=14*f, lines=dabWrap(x,task,false,fs,tw);
@@ -3225,14 +3228,14 @@ function dabRenderTV(plan,KL,KR){
   const [cr,y]=mk(RWl,RH,KR), R=tools(y), HEADr=HEAD/2;
   R.fill(DAB_G,0,0,RWl,RH); R.fill("#fff",RB,HEADr,RWl-2*RB,RH-HEADr-RB);
   { const lw=250, lh=lw*48/186; if(DAB.logo) y.drawImage(DAB.logo,RWl-RX0-lw-6,(HEADr-lh)/2,lw,lh); else dabText(y,"LIPMAN",RWl-RX0-6,HEADr/2+15,true,42,"#fff","right"); }
-  const ph=Math.min(phMax,(HTr-7-T0r-gap)/2), pw=ph*asp, cw=pw+strip, PX0=RX0+(RAV-(2*cw+gap))/2, rects={};
-  DAB_LEVELS.forEach((lv,i)=>{ const x0=PX0+(i%2)*(cw+gap), tt=T0r+Math.floor(i/2)*(ph+gap), px=x0+strip; R.fill(lv[2],x0,tt,strip,ph);
+  const ph=Math.min(phMax,(HTr-7-T0r-gap)/2), pw=ph*asp, cw=pw+strip, bw=(RAV-10)/2, colX=i=>RX0+(i%2)*(bw+10)+(bw-cw)/2, rects={};
+  DAB_LEVELS.forEach((lv,i)=>{ const x0=colX(i), tt=T0r+Math.floor(i/2)*(ph+gap), px=x0+strip; R.fill(lv[2],x0,tt,strip,ph);
     y.save(); y.translate(x0+strip/2+5,tt+ph/2); y.rotate(-Math.PI/2); dabText(y,lv[0],0,0,true,15,DAB_G,"center"); y.restore();
     y.drawImage(im,px,tt,pw,ph); rects[lv[1]]={x0:px,y0:tt,x1:px+pw,y1:tt+ph}; });
   const photoItems=dabItems(plan,zones), unplaced=dabMarkup(y,zones,photoItems,rects,pw/916);
-  DAB_LEVELS.forEach((lv,i)=>{ const x0=PX0+(i%2)*(cw+gap), tt=T0r+Math.floor(i/2)*(ph+gap); y.strokeStyle=lv[2]; y.lineWidth=2.5; y.strokeRect(x0,tt,cw,ph); });
+  DAB_LEVELS.forEach((lv,i)=>{ const x0=colX(i), tt=T0r+Math.floor(i/2)*(ph+gap); y.strokeStyle=lv[2]; y.lineWidth=2.5; y.strokeRect(x0,tt,cw,ph); });
   dabText(y,"Numbers on the photos match the Daily Task list. "+(plan.photo_note||"")+". Source: "+(plan.source||"meeting draft")+".",RWl-RX0-6,RH-4.5,false,10.5,DAB_TEAL,"right");
-  const bw=(RAV-10)/2, HBr=HB/2; [[RX0,"Permits",plan.permits||[]],[RX0+bw+10,"Deliveries",plan.deliveries||[]]].forEach(b=>{ R.box(b[0],HTr,bw,HBr,b[1]);
+  const HBr=HB/2; [[RX0,"Permits",plan.permits||[]],[RX0+bw+10,"Deliveries",plan.deliveries||[]]].forEach(b=>{ R.box(b[0],HTr,bw,HBr,b[1]);
     let fs=16, ls; do{ ls=[]; b[2].forEach(it=>{ dabWrap(y,it,false,fs,bw-20).forEach(l=>ls.push(l)); ls.push(null); }); if(ls.length) ls.pop(); const need=ls.reduce((s,l)=>s+(l===null?fs*0.4:fs*1.3),0); if(need<=HBr-36||fs<=10) break; fs-=0.5; }while(true);
     let ty=HTr+32; ls.forEach(l=>{ if(l===null){ ty+=fs*0.4; return; } dabText(y,l,b[0]+10,ty+fs*0.9,false,fs,DAB_INK); ty+=fs*1.3; }); });
   return {left:cl,right:cr,unplaced:unplaced,notes:photoItems.notes||[]};
@@ -3304,8 +3307,8 @@ function dabPlanPrompt(){
   +"Level 3 and above Level 2: Stair 2 and the lift belong to Bldg F from Level 2 upwards. Level 3 slab works for Bldg F (any grid, including Grid I-P and Grid G-I) all go on L3:BLDG F SLAB, and so do columns L3 to roof; there are no walls from Level 3 to the roof. Level 3 formwork edgeboards: 'Grid I-P' uses the GRID I-P line, 'Grid G-I' uses the GRID G-I line, and if no grid is given use both, plus the FW + ARROW line. The lift over-run (also written as lift walls L2 to roof or L3 to roof) goes on L3:LIFT OVER-RUN WALLS. Stair landings at Level 3 use the STAIR n LANDING zones. Scaffold from Level 2 to Level 3 is shown on the Level 2 photo: use L2:F SCAFFOLD DAY n, including DAY 4. "
   +"Use only ids from the list, spelled exactly. If nothing in the list fits (gates, traffic control, whole-site tasks), return an empty list; do not force a fit.\n\n"
   +"PART 2, hrw. Choose the highest-risk works of the day, at most 5, most serious first (for example crane lifts, work at height, scaffold erection, mobile plant, excavation, stressing, concrete pumping). For each give 'title' (the work, where, and the contractor in brackets), 'why' (2 to 6 words naming the hazard category) and 'controls' (one paragraph, at most 60 words, condensed from that contractor's controls above; add nothing that is not supported by them)."
-  +(wx?" The forecast for the day is: "+wx+" Where it creates a real risk for one of these works, end that item's controls with the specific stop-work or make-safe trigger.":"")
-  +"\n\nAustralian English. No em-dashes. Return STRICT JSON only, no markdown: {\"rows\":[{\"trade\":\"...\",\"task\":\"...\",\"zone_text\":\"...\",\"zones\":[\"...\"]}],\"hrw\":[{\"title\":\"...\",\"why\":\"...\",\"controls\":\"...\"}]}\n\nPHOTO ZONE LIST:\n"+zl+"\n\nCONTRACTORS:\n\n"+cards;
+  +(wx?" The forecast for the day is: "+wx+" Where it creates a real risk for one of these works, end that item's controls with the specific stop-work or make-safe trigger.\n\nPART 3, weather_short. Summarise that forecast for a site board in at most 28 words, as short phrases separated by full stops: min and max temperature, rain chance with amount and timing, storms or other warnings, wind direction and speed. Keep every figure exactly as given and add nothing that is not in the forecast.":"")
+  +"\n\nAustralian English. No em-dashes. Return STRICT JSON only, no markdown: {\"rows\":[{\"trade\":\"...\",\"task\":\"...\",\"zone_text\":\"...\",\"zones\":[\"...\"]}],\"hrw\":[{\"title\":\"...\",\"why\":\"...\",\"controls\":\"...\"}]"+(wx?",\"weather_short\":\"...\"":"")+"}\n\nPHOTO ZONE LIST:\n"+zl+"\n\nCONTRACTORS:\n\n"+cards;
 }
 async function dabMakePlan(){
   const apiKey=(localStorage.getItem("tphs_apikey")||"").trim(); if(!apiKey) throw new Error("Set the API key in the sidebar first.");
@@ -3323,7 +3326,7 @@ async function dabMakePlan(){
     rows.forEach(r=>{ if(!/^ARROW/.test(r[0])) r[3]=r[3].filter(z=>!shared[z]); if(/^ARROW/.test(r[0])) r[3]=r[3].filter(z=>!/EDGEBOARD.*\(FW ONLY\)/.test(z)); }); }
   // keep the draft's contractor order even if the reply strayed
   const ord={}; trades.forEach((t,i)=>{ ord[dabTradeName(t.name)]=i; }); rows.forEach((r,i)=>r._i=i); rows.sort((a,b)=>((ord[a[0]]==null?999:ord[a[0]])-(ord[b[0]]==null?999:ord[b[0]]))||a._i-b._i);
-  return {for_date:document.getElementById("siteDate").value,source:dr.ref||dr.name||"meeting draft",photo_note:dabPhotoNote(),weather:wxCurrent(),rows:rows,
+  return {for_date:document.getElementById("siteDate").value,source:dr.ref||dr.name||"meeting draft",photo_note:dabPhotoNote(),weather:wxCurrent(),wx_short:String(p.weather_short||"").trim(),rows:rows,
     hrw:(p.hrw||[]).slice(0,5).map(h=>[String(h.title||""),String(h.why||""),String(h.controls||"")]),permits:split(dr.permits),deliveries:split(dr.deliveries),_sig:dabSig(),_dropped:dropped};
 }
 function dabMissing(){ const m=[]; if(!dabZones()) m.push("the site pack (Setup tab)"); if(!DAB.photo) m.push("an aligned drone photo (step 1)"); if(!document.getElementById("siteDate").value) m.push("the site date");
@@ -3336,7 +3339,7 @@ async function dabBuild(replan){
   const btn=document.getElementById("dabBuildBtn"); btn.disabled=true; st.style.color="var(--text2)";
   try{
     captureActivities();
-    if(replan||!DAB.plan||DAB.plan._sig!==dabSig()){ st.textContent="Working out zones and high risk works…"; DAB.plan=await dabMakePlan(); try{ const d=loadDay(); d.plan=DAB.plan; saveDay(d); }catch(e){} }
+    if(replan||!DAB.plan||DAB.plan._sig!==dabSig()||(wxCurrent()&&DAB.plan.wx_short==null)){ st.textContent="Working out zones and high risk works…"; DAB.plan=await dabMakePlan(); try{ const d=loadDay(); d.plan=DAB.plan; saveDay(d); }catch(e){} }
     const plan=DAB.plan; plan.weather=wxCurrent()||plan.weather||""; plan.photo_note=dabPhotoNote(); plan.for_date=document.getElementById("siteDate").value;
     st.textContent="Drawing the board…"; await new Promise(r=>setTimeout(r,30));
     const ymd=plan.for_date.replace(/-/g,""); let KB=3, b; try{ b=dabRender(plan,KB); await dabJpeg(b.canvas,0.5); }catch(e){ KB=2; b=dabRender(plan,KB); }
