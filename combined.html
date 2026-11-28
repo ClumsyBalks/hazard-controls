@@ -3346,9 +3346,12 @@ async function dabBuild(replan){
     const bj=await dabJpeg(b.canvas,0.9), n1="TPHS M3 Daily Activities Board "+ymd+".pdf", pdf1=pdfFromJpegs([{jpg:bj,pxW:b.canvas.width,pxH:b.canvas.height,pageW:2560,pageH:1200}],n1.replace(".pdf",""));
     st.textContent="Drawing the TV boards…"; await new Promise(r=>setTimeout(r,30));
     // one 4K file per TV: left 2160 x 3840 (portrait), right 3840 x 2160
-    const tv=dabRenderTV(plan,2,2.25), n3="TPHS M3 Daily Activities Board "+ymd+" TV Left Portrait.pdf", n4="TPHS M3 Daily Activities Board "+ymd+" TV Right Landscape.pdf";
-    const pdf3=pdfFromJpegs([{jpg:await dabJpeg(tv.left,0.92),pxW:tv.left.width,pxH:tv.left.height,pageW:1080,pageH:1920}],n3.replace(".pdf","")),
-          pdf4=pdfFromJpegs([{jpg:await dabJpeg(tv.right,0.92),pxW:tv.right.width,pxH:tv.right.height,pageW:1920,pageH:1080}],n4.replace(".pdf",""));
+    // Images for the TV screensaver albums (Google Photos). The 43in TV hangs turned 90 degrees clockwise
+    // (its top edge to the right) and cannot rotate its own picture, so the left board is saved turned
+    // 90 degrees anticlockwise: it looks sideways on a PC and upright on that TV.
+    const tv=dabRenderTV(plan,2,2.25), n3="TPHS M3 TV Left "+ymd+".jpg", n4="TPHS M3 TV Right "+ymd+".jpg";
+    const rot=document.createElement("canvas"); rot.width=tv.left.height; rot.height=tv.left.width; { const g=rot.getContext("2d"); g.translate(0,rot.height); g.rotate(-Math.PI/2); g.drawImage(tv.left,0,0); }
+    const jb=async c=>new Blob([await dabJpeg(c,0.93)],{type:"image/jpeg"}), pdf3=await jb(rot), pdf4=await jb(tv.right);
     st.textContent="Drawing the print pack…"; await new Promise(r=>setTimeout(r,30));
     const pages=[], add=async(c,w,h)=>pages.push({jpg:await dabJpeg(c,0.9),pxW:c.width,pxH:c.height,pageW:w,pageH:h});
     for(const lv of DAB_LEVELS) await add(dabLevelPage(plan,lv,2.6),1190.55,841.89);
@@ -3359,7 +3362,7 @@ async function dabBuild(replan){
     [["dabDl3",n3,pdf3],["dabDl4",n4,pdf4],["dabDl1",n1,pdf1],["dabDl2",n2,pdf2]].forEach(o=>{ if(DAB.urls[o[0]]) URL.revokeObjectURL(DAB.urls[o[0]]); DAB.urls[o[0]]=URL.createObjectURL(o[2]); const a=document.getElementById(o[0]); a.href=DAB.urls[o[0]]; a.download=o[1]; a.textContent="⬇ "+o[1]; a.style.display="inline-flex"; });
     const pv=document.getElementById("dabPrev"); pv.width=1600; pv.height=680; { const g=pv.getContext("2d"), hh=660, wl=hh*9/16, wr=hh*16/9, x0=(1600-wl-wr-16)/2; g.fillStyle="#E9EDEC"; g.fillRect(0,0,1600,680); g.imageSmoothingQuality="high"; g.drawImage(tv.left,x0,10,wl,hh); g.drawImage(tv.right,x0+wl+16,10,wr,hh); } pv.style.display="block";
     const noZone=plan.rows.map((r,i)=>r[3].length?null:(i+1)+". "+r[0]).filter(Boolean);
-    st.style.color="var(--success)"; st.innerHTML="TV boards (left portrait, right landscape), single board and "+pages.length+"-page print pack built."+pourNote+(noZone.length?" <span style='color:#8A6100'>Not marked on a photo (no matching zone): "+escH(noZone.join(", "))+".</span>":"")+(b.notes&&b.notes.length?" <span style='color:#8A6100'>"+escH(b.notes.join(" | "))+"</span>":"")+(b.unplaced.length?" <span style='color:#8A6100'>No room for a label: "+escH(b.unplaced.join("; "))+".</span>":"")+(plan.weather?"":" <span style='color:#8A6100'>No weather entered in step 2, so the weather box is blank.</span>");
+    st.style.color="var(--success)"; st.innerHTML="TV images (the left one is saved on its side for the portrait TV), single board and "+pages.length+"-page print pack built."+pourNote+(noZone.length?" <span style='color:#8A6100'>Not marked on a photo (no matching zone): "+escH(noZone.join(", "))+".</span>":"")+(b.notes&&b.notes.length?" <span style='color:#8A6100'>"+escH(b.notes.join(" | "))+"</span>":"")+(b.unplaced.length?" <span style='color:#8A6100'>No room for a label: "+escH(b.unplaced.join("; "))+".</span>":"")+(plan.weather?"":" <span style='color:#8A6100'>No weather entered in step 2, so the weather box is blank.</span>");
     saveFiles([{blob:pdf3,name:n3,kind:"dab",date:plan.for_date},{blob:pdf4,name:n4,kind:"dab",date:plan.for_date},{blob:pdf1,name:n1,kind:"dab",date:plan.for_date},{blob:pdf2,name:n2,kind:"dab",date:plan.for_date}],st);
     const d=loadDay(); d.dab={at:new Date().toISOString(),date:plan.for_date}; saveDay(d); renderNeeds(); btn.disabled=false; return true;
   }catch(e){ st.style.color="#B3261E"; st.textContent="Could not build the board: "+(e.message||e); btn.disabled=false; return false; }
