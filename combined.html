@@ -533,7 +533,7 @@
     <div class="mb-status" id="dabNeeds"></div>
     <div class="mb-row" style="margin-top:8px;"><button class="btn btn-primary" id="dabBuildBtn" onclick="dabBuild(false)">Build board and print pack</button>
       <button class="btn btn-ghost btn-sm" onclick="dabBuild(true)" title="Ask again which zones and high risk works to show">Redo zones and high risk works</button>
-      <a id="dabDl1" class="btn btn-ghost" style="display:none;text-decoration:none;"></a><a id="dabDl2" class="btn btn-ghost" style="display:none;text-decoration:none;"></a></div>
+      <a id="dabDl3" class="btn btn-ghost" style="display:none;text-decoration:none;"></a><a id="dabDl4" class="btn btn-ghost" style="display:none;text-decoration:none;"></a><a id="dabDl1" class="btn btn-ghost" style="display:none;text-decoration:none;"></a><a id="dabDl2" class="btn btn-ghost" style="display:none;text-decoration:none;"></a></div>
     <div class="mb-status" id="dabStatus"></div>
     <canvas id="dabPrev" style="display:none;width:100%;border:1px solid var(--border);border-radius:6px;margin-top:8px;"></canvas>
   </div>
@@ -3173,6 +3173,70 @@ function dabRender(plan,K){
     b[2].forEach(it=>{ dabWrap(x,it,false,16,bw-20).forEach(l=>{ dabText(x,l,b[0]+10,ty+14,false,16,DAB_INK); ty+=21; }); ty+=6; }); });
   return {canvas:c,leftClip:[27,113,RX-7-27,1178-113],unplaced:unplaced,notes:photoItems.notes||[]};
 }
+// ---- the board split for the two prestart TVs: left = 43" portrait (9:16) with the task list and
+// high risk works, right = 75" landscape (16:9) with the level photos, permits and deliveries.
+// Both are laid out in one unit (u) with the screens at the same height (1920u), so the dark
+// border and header band are the same size on both, and the High Risk Works heading on the left
+// sits level with the Permits / Deliveries headings on the right. The right screen is drawn at
+// twice the left's scale (R logical units = 2u).
+function dabRenderTV(plan,KL,KR){
+  const zones=dabZones(), im=DAB.photo, asp=im.width/im.height, rows=plan.rows, hrw=(plan.hrw||[]).slice(0,5);
+  const HU=1920, WLu=1080, BORD=32, HEAD=160;
+  const mk=(w,h,k)=>{ const c=document.createElement("canvas"); c.width=Math.round(w*k); c.height=Math.round(h*k); const x=c.getContext("2d"); x.scale(c.width/w,c.height/h); return [c,x]; };
+  const tools=x=>{ const fill=(col,x0,t,w,h)=>{ x.fillStyle=col; x.fillRect(x0,t,w,h); };
+    return {fill:fill, box:(x0,t,w,h,label)=>{ fill("#fff",x0,t,w,h); x.strokeStyle=DAB_G; x.lineWidth=1.6; x.strokeRect(x0,t,w,h); fill(DAB_G,x0,t,w,24); dabText(x,label,x0+8,t+17,false,14,"#fff"); }}; };
+  // ---------- shared heights
+  const [cl,x]=mk(WLu,HU,KL), L=tools(x);
+  const LX=BORD+18, LW=WLu-2*LX, T0=HEAD+16, BOT=HU-BORD-14;            // BOT = bottom of the lower boxes (u)
+  const hrwNeed=g=>{ let n=32; hrw.forEach(h=>{ n+=g*(15*dabWrap(x,h[0],true,12.5*g,LW-46).length+14+13.5*dabWrap(x,h[2],false,11.5*g,LW-46).length+7); }); return Math.max(n+6,160); };
+  const hn=hrwNeed(1);
+  const RWl=WLu*(16/9)*(16/9)/2, RH=HU/2, RB=BORD/2, RX0=RB+9, RAV=RWl-2*RX0, gap=8, strip=22, T0r=T0/2;   // right screen, logical units
+  const phMax=((RAV-gap)/2-strip)/asp, HBfull=BOT-2*(T0r+2*phMax+gap+7);  // lower-box height (u) that lets the photos run full width
+  const HB=Math.max(hn,HBfull), HT=BOT-HB, HTr=HT/2;
+  // ---------- left screen
+  L.fill(DAB_G,0,0,WLu,HU); L.fill("#fff",BORD,HEAD,WLu-2*BORD,HU-HEAD-BORD);
+  { let fs=104; x.font=dabFont(false,fs); while(x.measureText("Daily Activities Board").width>WLu-2*LX&&fs>40){ fs-=2; x.font=dabFont(false,fs); } dabText(x,"Daily Activities Board",LX,HEAD/2+fs*0.34,false,fs,DAB_TEAL); }
+  const DH=124; L.box(LX,T0,270,DH,"Date"); L.box(LX+280,T0,LW-280,DH,"Weather"); dabText(x,dabDayLong(plan.for_date,true),LX+8,T0+86,true,27,DAB_INK);
+  let wl=[],wfs=18; for(const o of [[18,4],[16,4],[14.5,5],[13,6],[11.5,6],[10,7]]){ wfs=o[0]; wl=dabWrap(x,plan.weather||"",false,wfs,LW-280-16); if(wl.length<=o[1]) break; }
+  { const lead=wfs*1.22, top=T0+24+(DH-24-lead*wl.length)/2+wfs*0.95; wl.forEach((l,k)=>dabText(x,l,LX+288,top+k*lead,false,wfs,DAB_INK)); }
+  const TT=T0+DH+10, TB=HT-10; L.box(LX,TT,LW,TB-TT,"Contractor");
+  const rh=Math.min(80,(TB-TT-24)/Math.max(rows.length,1)), f=Math.max(1,Math.min(1.5,rh/44));   // rows and type grow into the taller box
+  const cx=[LX,LX+150+52*f,LX+150+52*f+26+14*f,LX+LW-150-80*f,LX+LW]; dabText(x,"Daily Task",cx[2]+4,TT+17,false,14,"#fff"); dabText(x,"Zone",cx[3]+6,TT+17,false,14,"#fff");
+  let t=TT+24, prev=null;
+  rows.forEach((r,n)=>{ const trade=r[0],task=r[1],ztxt=r[2]||"",col=dabColour(trade),mid=t+rh/2;
+    if(trade!==prev){ if(prev!==null){ x.strokeStyle=DAB_G; x.lineWidth=1.1; x.beginPath(); x.moveTo(LX,t); x.lineTo(LX+LW,t); x.stroke(); }
+      L.fill(col,LX+1,t,7,rh); dabCell(x,trade,LX+15,mid,cx[1]-cx[0]-22,rh,14*f,11); }
+    else{ L.fill(col,LX+1,t,7,rh); x.strokeStyle="#C9D6D5"; x.lineWidth=0.6; x.beginPath(); x.moveTo(cx[1],t); x.lineTo(LX+LW,t); x.stroke(); }
+    const br=Math.min(10.5*f,rh/2-3), bx=(cx[1]+cx[2])/2; x.beginPath(); x.arc(bx,mid,br,0,7); x.fillStyle=col; x.fill(); { const bf=(n<9?12:10.5)*br/10.5; dabText(x,String(n+1),bx,mid+bf*0.35,true,bf,"#fff","center"); }
+    const tw=cx[3]-cx[2]-12; let fs=14*f, lines=dabWrap(x,task,false,fs,tw);
+    while(fs>10&&lines.length*fs*1.18>rh-6){ fs-=0.5; lines=dabWrap(x,task,false,fs,tw); }
+    const fit=Math.max(1,Math.floor((rh-4)/(fs*1.18))), sh=lines.slice(0,fit); if(lines.length>sh.length) sh[sh.length-1]=sh[sh.length-1].replace(/.{0,3}$/,"…");
+    sh.forEach((l,k)=>dabText(x,l,cx[2]+4,mid+fs*0.35-(sh.length-1)*fs*0.58+k*fs*1.16,false,fs,DAB_INK));
+    dabCell(x,ztxt,cx[3]+6,mid,cx[4]-cx[3]-12,rh,13.5*f,11);
+    prev=trade; t+=rh; });
+  x.strokeStyle="#C9D6D5"; x.lineWidth=0.6; [cx[1],cx[3]].forEach(vx=>{ x.beginPath(); x.moveTo(vx,TT+24); x.lineTo(vx,t); x.stroke(); });
+  L.box(LX,HT,LW,HB,"High Risk Works & Controls"); t=HT+32;
+  let g=1; while(g<1.6&&hrwNeed(g+0.02)<=HB) g+=0.02;                      // larger type when the box is taller than the items need
+  hrw.forEach((h,k)=>{ x.beginPath(); x.arc(LX+18,t+9*g,9*g,0,7); x.fillStyle="#C62828"; x.fill(); dabText(x,String(k+1),LX+18,t+13*g,true,11.5*g,"#fff","center");
+    dabWrap(x,h[0],true,12.5*g,LW-46).forEach(l=>{ dabText(x,l,LX+34,t+13*g,true,12.5*g,DAB_INK); t+=15*g; });
+    dabText(x,String(h[1]||"").toUpperCase(),LX+34,t+12*g,true,11*g,"#C62828"); t+=14*g;
+    dabWrap(x,h[2],false,11.5*g,LW-46).forEach(l=>{ dabText(x,l,LX+34,t+12*g,false,11.5*g,DAB_GREY); t+=13.5*g; }); t+=7*g; });
+  // ---------- right screen
+  const [cr,y]=mk(RWl,RH,KR), R=tools(y), HEADr=HEAD/2;
+  R.fill(DAB_G,0,0,RWl,RH); R.fill("#fff",RB,HEADr,RWl-2*RB,RH-HEADr-RB);
+  { const lw=250, lh=lw*48/186; if(DAB.logo) y.drawImage(DAB.logo,RWl-RX0-lw-6,(HEADr-lh)/2,lw,lh); else dabText(y,"LIPMAN",RWl-RX0-6,HEADr/2+15,true,42,"#fff","right"); }
+  const ph=Math.min(phMax,(HTr-7-T0r-gap)/2), pw=ph*asp, cw=pw+strip, PX0=RX0+(RAV-(2*cw+gap))/2, rects={};
+  DAB_LEVELS.forEach((lv,i)=>{ const x0=PX0+(i%2)*(cw+gap), tt=T0r+Math.floor(i/2)*(ph+gap), px=x0+strip; R.fill(lv[2],x0,tt,strip,ph);
+    y.save(); y.translate(x0+strip/2+5,tt+ph/2); y.rotate(-Math.PI/2); dabText(y,lv[0],0,0,true,15,DAB_G,"center"); y.restore();
+    y.drawImage(im,px,tt,pw,ph); rects[lv[1]]={x0:px,y0:tt,x1:px+pw,y1:tt+ph}; });
+  const photoItems=dabItems(plan,zones), unplaced=dabMarkup(y,zones,photoItems,rects,pw/916);
+  DAB_LEVELS.forEach((lv,i)=>{ const x0=PX0+(i%2)*(cw+gap), tt=T0r+Math.floor(i/2)*(ph+gap); y.strokeStyle=lv[2]; y.lineWidth=2.5; y.strokeRect(x0,tt,cw,ph); });
+  dabText(y,"Numbers on the photos match the Daily Task list. "+(plan.photo_note||"")+". Source: "+(plan.source||"meeting draft")+".",RWl-RX0-6,RH-4.5,false,10.5,DAB_TEAL,"right");
+  const bw=(RAV-10)/2, HBr=HB/2; [[RX0,"Permits",plan.permits||[]],[RX0+bw+10,"Deliveries",plan.deliveries||[]]].forEach(b=>{ R.box(b[0],HTr,bw,HBr,b[1]);
+    let fs=16, ls; do{ ls=[]; b[2].forEach(it=>{ dabWrap(y,it,false,fs,bw-20).forEach(l=>ls.push(l)); ls.push(null); }); if(ls.length) ls.pop(); const need=ls.reduce((s,l)=>s+(l===null?fs*0.4:fs*1.3),0); if(need<=HBr-36||fs<=10) break; fs-=0.5; }while(true);
+    let ty=HTr+32; ls.forEach(l=>{ if(l===null){ ty+=fs*0.4; return; } dabText(y,l,b[0]+10,ty+fs*0.9,false,fs,DAB_INK); ty+=fs*1.3; }); });
+  return {left:cl,right:cr,unplaced:unplaced,notes:photoItems.notes||[]};
+}
 // ---- print pack pages (A3)
 function dabLevelPage(plan,lv,K){
   const W=1190.55,H=841.89,c=document.createElement("canvas"); c.width=Math.round(W*K); c.height=Math.round(H*K); const x=c.getContext("2d"); x.scale(K,K);
@@ -3277,6 +3341,11 @@ async function dabBuild(replan){
     st.textContent="Drawing the board…"; await new Promise(r=>setTimeout(r,30));
     const ymd=plan.for_date.replace(/-/g,""); let KB=3, b; try{ b=dabRender(plan,KB); await dabJpeg(b.canvas,0.5); }catch(e){ KB=2; b=dabRender(plan,KB); }
     const bj=await dabJpeg(b.canvas,0.9), n1="TPHS M3 Daily Activities Board "+ymd+".pdf", pdf1=pdfFromJpegs([{jpg:bj,pxW:b.canvas.width,pxH:b.canvas.height,pageW:2560,pageH:1200}],n1.replace(".pdf",""));
+    st.textContent="Drawing the TV boards…"; await new Promise(r=>setTimeout(r,30));
+    // one 4K file per TV: left 2160 x 3840 (portrait), right 3840 x 2160
+    const tv=dabRenderTV(plan,2,2.25), n3="TPHS M3 Daily Activities Board "+ymd+" TV Left Portrait.pdf", n4="TPHS M3 Daily Activities Board "+ymd+" TV Right Landscape.pdf";
+    const pdf3=pdfFromJpegs([{jpg:await dabJpeg(tv.left,0.92),pxW:tv.left.width,pxH:tv.left.height,pageW:1080,pageH:1920}],n3.replace(".pdf","")),
+          pdf4=pdfFromJpegs([{jpg:await dabJpeg(tv.right,0.92),pxW:tv.right.width,pxH:tv.right.height,pageW:1920,pageH:1080}],n4.replace(".pdf",""));
     st.textContent="Drawing the print pack…"; await new Promise(r=>setTimeout(r,30));
     const pages=[], add=async(c,w,h)=>pages.push({jpg:await dabJpeg(c,0.9),pxW:c.width,pxH:c.height,pageW:w,pageH:h});
     for(const lv of DAB_LEVELS) await add(dabLevelPage(plan,lv,2.6),1190.55,841.89);
@@ -3284,11 +3353,11 @@ async function dabBuild(replan){
     const prog=loadProgram(); let pourNote="";
     if(prog){ const pc=dabPoursPage(prog,plan.for_date,2.6), pj=await dabJpeg(pc,0.9); for(let i=0;i<2;i++) pages.push({jpg:pj,pxW:pc.width,pxH:pc.height,pageW:1190.55,pageH:841.89}); } else pourNote=" No programme is loaded, so the two pour sheets were left out.";
     const n2="TPHS M3 Whiteboard Print Pack "+ymd+".pdf", pdf2=pdfFromJpegs(pages,n2.replace(".pdf",""));
-    [["dabDl1",n1,pdf1],["dabDl2",n2,pdf2]].forEach(o=>{ if(DAB.urls[o[0]]) URL.revokeObjectURL(DAB.urls[o[0]]); DAB.urls[o[0]]=URL.createObjectURL(o[2]); const a=document.getElementById(o[0]); a.href=DAB.urls[o[0]]; a.download=o[1]; a.textContent="⬇ "+o[1]; a.style.display="inline-flex"; });
-    const pv=document.getElementById("dabPrev"); pv.width=1600; pv.height=750; pv.getContext("2d").drawImage(b.canvas,0,0,1600,750); pv.style.display="block";
+    [["dabDl3",n3,pdf3],["dabDl4",n4,pdf4],["dabDl1",n1,pdf1],["dabDl2",n2,pdf2]].forEach(o=>{ if(DAB.urls[o[0]]) URL.revokeObjectURL(DAB.urls[o[0]]); DAB.urls[o[0]]=URL.createObjectURL(o[2]); const a=document.getElementById(o[0]); a.href=DAB.urls[o[0]]; a.download=o[1]; a.textContent="⬇ "+o[1]; a.style.display="inline-flex"; });
+    const pv=document.getElementById("dabPrev"); pv.width=1600; pv.height=680; { const g=pv.getContext("2d"), hh=660, wl=hh*9/16, wr=hh*16/9, x0=(1600-wl-wr-16)/2; g.fillStyle="#E9EDEC"; g.fillRect(0,0,1600,680); g.imageSmoothingQuality="high"; g.drawImage(tv.left,x0,10,wl,hh); g.drawImage(tv.right,x0+wl+16,10,wr,hh); } pv.style.display="block";
     const noZone=plan.rows.map((r,i)=>r[3].length?null:(i+1)+". "+r[0]).filter(Boolean);
-    st.style.color="var(--success)"; st.innerHTML="Board and "+pages.length+"-page print pack built."+pourNote+(noZone.length?" <span style='color:#8A6100'>Not marked on a photo (no matching zone): "+escH(noZone.join(", "))+".</span>":"")+(b.notes&&b.notes.length?" <span style='color:#8A6100'>"+escH(b.notes.join(" | "))+"</span>":"")+(b.unplaced.length?" <span style='color:#8A6100'>No room for a label: "+escH(b.unplaced.join("; "))+".</span>":"")+(plan.weather?"":" <span style='color:#8A6100'>No weather entered in step 2, so the weather box is blank.</span>");
-    saveFiles([{blob:pdf1,name:n1,kind:"dab",date:plan.for_date},{blob:pdf2,name:n2,kind:"dab",date:plan.for_date}],st);
+    st.style.color="var(--success)"; st.innerHTML="TV boards (left portrait, right landscape), single board and "+pages.length+"-page print pack built."+pourNote+(noZone.length?" <span style='color:#8A6100'>Not marked on a photo (no matching zone): "+escH(noZone.join(", "))+".</span>":"")+(b.notes&&b.notes.length?" <span style='color:#8A6100'>"+escH(b.notes.join(" | "))+"</span>":"")+(b.unplaced.length?" <span style='color:#8A6100'>No room for a label: "+escH(b.unplaced.join("; "))+".</span>":"")+(plan.weather?"":" <span style='color:#8A6100'>No weather entered in step 2, so the weather box is blank.</span>");
+    saveFiles([{blob:pdf3,name:n3,kind:"dab",date:plan.for_date},{blob:pdf4,name:n4,kind:"dab",date:plan.for_date},{blob:pdf1,name:n1,kind:"dab",date:plan.for_date},{blob:pdf2,name:n2,kind:"dab",date:plan.for_date}],st);
     const d=loadDay(); d.dab={at:new Date().toISOString(),date:plan.for_date}; saveDay(d); renderNeeds(); btn.disabled=false; return true;
   }catch(e){ st.style.color="#B3261E"; st.textContent="Could not build the board: "+(e.message||e); btn.disabled=false; return false; }
 }
